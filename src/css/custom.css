@@ -1,0 +1,215 @@
+/**
+ * Infima theme translated from the Desnarl design system's tokens
+ * (~/Desktop/Desnarl/_ds/.../tokens/*.css — colors, typography, radius,
+ * shadow, spacing, motion). Values are copied in, not re-derived, so this
+ * file should be re-synced by hand if the source design system changes.
+ */
+
+/* ---- Self-hosted webfonts (no Google Fonts / third-party CDN — a site
+   whose pitch is "nothing leaves your infrastructure" must not ping
+   Google on every page load). Source: tokens/fonts.css. ---- */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/IBMPlexSans-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/JetBrainsMono-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/JetBrainsMono-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/JetBrainsMono-Bold.woff2') format('woff2');
+}
+
+/* ---- Base ramps (tokens/colors.css, copied verbatim) ---- */
+:root {
+  --dsn-graphite-1000: #07090a;
+  --dsn-graphite-950: #0b0d0f;
+  --dsn-graphite-900: #101315;
+  --dsn-graphite-850: #15191c;
+  --dsn-graphite-800: #1c2125;
+  --dsn-graphite-750: #222a2f;
+  --dsn-graphite-700: #2b3339;
+  --dsn-graphite-600: #39434a;
+  --dsn-graphite-500: #5a666f;
+  --dsn-graphite-400: #7e8c96;
+  --dsn-graphite-300: #a6b2ba;
+  --dsn-graphite-200: #c9d2d8;
+  --dsn-graphite-150: #dde4e8;
+  --dsn-graphite-100: #e9eef1;
+  --dsn-graphite-50: #f4f7f9;
+  --dsn-white: #ffffff;
+
+  --dsn-ember-50: #fff3e6;
+  --dsn-ember-100: #ffe1c2;
+  --dsn-ember-200: #ffc894;
+  --dsn-ember-300: #ffb268;
+  --dsn-ember-400: #ff9a3c;
+  --dsn-ember-500: #f5851f;
+  --dsn-ember-600: #d96c0c;
+  --dsn-ember-700: #ae5409;
+  --dsn-ember-800: #7c3b06;
+  --dsn-ember-900: #4a2304;
+
+  --dsn-filament-400: #6ba8ff;
+  --dsn-filament-500: #4a8ce8;
+  --dsn-filament-600: #2f6fd0;
+  --dsn-filament-700: #1f55a6;
+
+  --dsn-green-400: #3fbf7f;
+  --dsn-green-600: #1e8c58;
+  --dsn-green-700: #15693f;
+  --dsn-yellow-400: #e8c547;
+  --dsn-yellow-600: #9a7c06;
+  --dsn-yellow-700: #6e5804;
+  --dsn-red-400: #ff6b6b;
+  --dsn-red-600: #d03a35;
+  --dsn-red-700: #a32b27;
+
+  /* ---- Infima: typography (tokens/typography.css) ---- */
+  --ifm-font-family-base: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+  --ifm-heading-font-family: var(--ifm-font-family-base);
+  --ifm-heading-font-weight: 600;
+  --ifm-font-weight-bold: 700;
+  --ifm-line-height-base: 1.5;
+  --ifm-code-font-size: 90%;
+  --ifm-h1-font-size: 2.4rem;
+  --ifm-h2-font-size: 1.85rem;
+  --ifm-h3-font-size: 1.375rem;
+
+  /* ---- Infima: radius (tokens/radius.css role aliases) ---- */
+  --ifm-global-radius: 5px; /* --radius-control */
+  --ifm-card-border-radius: 8px; /* --radius-card */
+  --ifm-button-border-radius: 5px;
+  --ifm-alert-border-radius: 8px;
+  --ifm-code-border-radius: 5px;
+
+  /* ---- Infima: spacing (tokens/spacing.css) ---- */
+  --ifm-spacing-horizontal: 24px; /* --gutter-inline */
+  --ifm-global-spacing: 16px; /* --stack */
+
+  /* ---- Infima: motion (tokens/motion.css) ---- */
+  --ifm-transition-fast: 120ms; /* --dur-fast */
+  --ifm-transition-slow: 260ms; /* --dur-slow */
+  --ifm-transition-timing-default: cubic-bezier(0.2, 0, 0, 1); /* --ease-standard */
+
+  /* ---- Infima: primary accent, from the Ember ramp (light mode) ---- */
+  --ifm-color-primary: var(--dsn-ember-600);
+  --ifm-color-primary-dark: var(--dsn-ember-700);
+  --ifm-color-primary-darker: var(--dsn-ember-800);
+  --ifm-color-primary-darkest: var(--dsn-ember-900);
+  --ifm-color-primary-light: var(--dsn-ember-500);
+  --ifm-color-primary-lighter: var(--dsn-ember-400);
+  --ifm-color-primary-lightest: var(--dsn-ember-300);
+
+  --ifm-color-success: var(--dsn-green-600);
+  --ifm-color-info: var(--dsn-filament-600);
+  --ifm-color-warning: var(--dsn-yellow-600);
+  --ifm-color-danger: var(--dsn-red-600);
+
+  /* ---- Semantic aliases, LIGHT (tokens/colors.css `[data-theme="light"]`) ---- */
+  --ifm-background-color: var(--dsn-white);
+  --ifm-background-surface-color: var(--dsn-white);
+  --ifm-font-color-base: var(--dsn-graphite-700); /* --text-body */
+  --ifm-heading-color: var(--dsn-graphite-1000); /* --text-strong */
+  --ifm-color-emphasis-300: var(--dsn-graphite-150); /* --border-default */
+  --ifm-color-emphasis-200: var(--dsn-graphite-100); /* --border-subtle */
+  --ifm-toc-border-color: var(--dsn-graphite-100);
+  --ifm-table-border-color: var(--dsn-graphite-150);
+  --ifm-hr-border-color: var(--dsn-graphite-150);
+  --ifm-code-background: var(--dsn-graphite-50);
+  --ifm-navbar-background-color: var(--dsn-white);
+  --ifm-footer-background-color: var(--dsn-graphite-1000);
+  --ifm-footer-color: var(--dsn-graphite-200);
+  --ifm-footer-link-color: var(--dsn-graphite-150);
+  --ifm-footer-title-color: var(--dsn-white);
+  --docusaurus-highlighted-code-line-bg: rgba(11, 13, 15, 0.08);
+}
+
+/* For readability, Infima recommends a lighter palette in dark mode —
+   this design system is dark-DEFAULT, so this block carries the primary
+   (`:root`, unqualified) values from tokens/colors.css. */
+[data-theme='dark'] {
+  --ifm-color-primary: var(--dsn-ember-400);
+  --ifm-color-primary-dark: var(--dsn-ember-500);
+  --ifm-color-primary-darker: var(--dsn-ember-600);
+  --ifm-color-primary-darkest: var(--dsn-ember-700);
+  --ifm-color-primary-light: var(--dsn-ember-300);
+  --ifm-color-primary-lighter: var(--dsn-ember-200);
+  --ifm-color-primary-lightest: var(--dsn-ember-100);
+
+  --ifm-color-success: var(--dsn-green-400);
+  --ifm-color-info: var(--dsn-filament-400);
+  --ifm-color-warning: var(--dsn-yellow-400);
+  --ifm-color-danger: var(--dsn-red-400);
+
+  /* Semantic aliases, DARK (tokens/colors.css `:root`, the default block) */
+  --ifm-background-color: var(--dsn-graphite-950); /* --surface-page */
+  --ifm-background-surface-color: var(--dsn-graphite-900); /* --surface-card */
+  --ifm-font-color-base: var(--dsn-graphite-200); /* --text-body */
+  --ifm-heading-color: var(--dsn-graphite-50); /* --text-strong */
+  --ifm-color-emphasis-300: var(--dsn-graphite-700); /* --border-default */
+  --ifm-color-emphasis-200: var(--dsn-graphite-800); /* --border-subtle */
+  --ifm-toc-border-color: var(--dsn-graphite-800);
+  --ifm-table-border-color: var(--dsn-graphite-700);
+  --ifm-hr-border-color: var(--dsn-graphite-700);
+  --ifm-code-background: var(--dsn-graphite-900);
+  --ifm-navbar-background-color: var(--dsn-graphite-950);
+  --ifm-footer-background-color: var(--dsn-graphite-1000);
+  --ifm-footer-color: var(--dsn-graphite-300);
+  --ifm-footer-link-color: var(--dsn-graphite-150);
+  --ifm-footer-title-color: var(--dsn-white);
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.06);
+}
+
+/* Focus ring, matching tokens/colors.css's --focus-ring exactly. */
+:root {
+  --ifm-focus-ring: 0 0 0 2px var(--ifm-background-color), 0 0 0 4px var(--dsn-ember-600);
+}
+[data-theme='dark'] {
+  --ifm-focus-ring: 0 0 0 2px var(--ifm-background-color), 0 0 0 4px var(--dsn-ember-400);
+}
+:focus-visible {
+  box-shadow: var(--ifm-focus-ring);
+  outline: none;
+}

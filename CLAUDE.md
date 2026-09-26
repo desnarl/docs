@@ -1,6 +1,6 @@
 # desnarl/docs
 
-Desnarl's public documentation site (Docusaurus, TypeScript classic template) — install, self-hosted deployment, MCP tool reference, licensing/pricing FAQ, troubleshooting. Public from day one, deployed to GitHub Pages. Not a Fence product repo — Desnarl is a standalone product under the `desnarl` GitHub org. This repo has no code dependency on `crossrepo-graph` (the MCP server backend); it documents it.
+Desnarl's public documentation site (Docusaurus, TypeScript classic template) — install, self-hosted deployment, MCP tool reference, licensing/pricing FAQ, troubleshooting. Public from day one, deployed via Cloudflare Pages at `docs.desnarl.com` (not GitHub Pages — moved off it deliberately; see "Hosting" below). Not a Fence product repo — Desnarl is a standalone product under the `desnarl` GitHub org. This repo has no code dependency on `crossrepo-graph` (the MCP server backend); it documents it.
 
 ## Non-negotiable rules
 
@@ -21,6 +21,14 @@ Load-bearing decisions carried into this repo's content — don't drift from the
 ## Not a service repo
 
 This repo does **not** follow a TDD/100%-coverage/complexity-limit regime — there's no application logic here to test in that sense (matching the same exception carved out for Fence's own `fence/docs` repo). CI here is a build-succeeds check (`npm run build` + `npm run typecheck`), not a Vitest coverage gate. See `.github/workflows/ci.yml`.
+
+## Hosting
+
+Deployed via Cloudflare Pages (project `desnarl-docs`, in the same Cloudflare account/zone as `desnarl.com`), connected directly to this repo's GitHub source through the Cloudflare dashboard's own OAuth flow — not creatable via the plain Cloudflare API, and not GitHub Actions-driven. Build command `npm run build`, output directory `build`, production branch `main`. Custom domain: `docs.desnarl.com`.
+
+This repo previously deployed to GitHub Pages (`organizationName`/`projectName`/`baseUrl: /docs/` in `docusaurus.config.ts`) — moved to Cloudflare on the founder's explicit instruction (2026-09-26), matching every other product in this Cloudflare account's own docs-hosting convention (`docs.<product>.com` via Cloudflare Pages). `baseUrl` is now `/` since the site is served at a domain root, not a GitHub-Pages-style project subpath — don't reintroduce a `/docs/` prefix.
+
+`.github/workflows/ci.yml` is a PR build-check gate only, unrelated to deployment — Cloudflare's own GitHub integration builds and deploys `main` independently of this repo's own Actions.
 
 ## Content discipline
 

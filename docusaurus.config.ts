@@ -13,14 +13,10 @@ const config: Config = {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
   },
 
-  // GitHub Pages project-page URL for the desnarl/docs repo.
-  url: 'https://desnarl.github.io',
-  baseUrl: '/docs/',
-
-  // GitHub pages deployment config.
-  organizationName: 'desnarl',
-  projectName: 'docs',
-  deploymentBranch: 'gh-pages',
+  // Served at the domain root via Cloudflare Pages, not a GitHub-Pages-style
+  // project subpath — baseUrl is '/', not '/docs/'.
+  url: 'https://docs.desnarl.com',
+  baseUrl: '/',
   trailingSlash: false,
 
   onBrokenLinks: 'throw',

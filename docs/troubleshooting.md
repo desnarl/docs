@@ -33,6 +33,13 @@ This is the network-endpoint-backed check a *consuming* repo runs in its own CI 
 
 None of these three ever cause the check to report a false "no consumers affected" — a batch that can't run at all is always reported as unreachable, distinct from a completed batch.
 
+## Docker image fails to pull or run
+
+The image is published to `ghcr.io/desnarl/crossrepo-graph` on each tagged release. A pull failure is most often one of two causes, not a broken image:
+
+- **The package is still private.** GHCR container packages default to private on their very first publish. If `docker pull ghcr.io/desnarl/crossrepo-graph:<tag>` returns `denied` or `unauthorized` with no credentials configured, this is the most likely cause — check whether the package has been made public yet before assuming your own setup is wrong.
+- **`linux/amd64` only.** This image is built for `linux/amd64` only as of Phase 2 — running it on an ARM host (e.g. Apple Silicon without Rosetta, an ARM-based cloud instance) will either fail to pull a matching manifest or run under slow binary translation. There is no multi-arch build yet.
+
 ## Getting help
 
 Support is an **in-portal ticket system** — file a ticket from inside the license portal at [desnarl.com](https://desnarl.com), once you've created an account and signed in. That system is not live yet; this page will link directly to it once it ships.

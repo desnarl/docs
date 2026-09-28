@@ -9,6 +9,17 @@ const config: Config = {
   tagline: 'Cross-repo impact, consumers and schema references — on your own infrastructure.',
   favicon: 'img/favicon.ico',
 
+  headTags: [
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'apple-touch-icon',
+        sizes: '180x180',
+        href: '/img/apple-touch-icon.png',
+      },
+    },
+  ],
+
   future: {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
   },

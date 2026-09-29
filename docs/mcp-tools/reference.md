@@ -119,6 +119,22 @@ flowchart TD
 
 Each diagram is scoped to exactly one query's already-resolved result — never a whole-graph dump.
 
+## Traversal depth {/* #depth */}
+
+`crossrepo_impact` and `crossrepo_consumers` follow a symbol's re-export chain across repo boundaries. How far they follow is a parameter, not a fixed ceiling: pass the optional `maxHops` (a positive integer) and Desnarl traces that many hops and stops there. **When you omit it, the default is 4.** There is no background crawl and no continuous graph maintenance: a query traverses the depth you asked for and returns.
+
+If a real hop exists beyond your cap, the response says so with `"truncated": true`, so a short result is never mistaken for a complete one. Cycles are skipped, and a cycle is never reported as truncation.
+
+Depth changes only how much of your own code is read, on your own infrastructure. It sends nothing to Desnarl or to any third party.
+
+**A real four-hop chain.** This chain exists in the Kubernetes ecosystem:
+
+`k8s.io/api` → `k8s.io/apimachinery` → `k8s.io/client-go` → `k8s.io/apiserver` → `kube-aggregator`
+
+That is five packages and four hops end to end, so the default of 4 covers all of it. A lower `maxHops` stops sooner, and `truncated` tells you it did.
+
+**Schema references have their own, shorter limit.** `crossrepo_schema_refs` follows an HTTP call to the route that reads a table for at most **3** hops. A call site that would need more is listed in `httpIndirectionUnresolved` instead of being dropped, so it is disclosed as a possible false negative and not reported as absent.
+
 ## Scope and limitations
 
 - **Local sibling-checkout resolution only** for repo content — every answer is computed from what's actually checked out on disk under the workspace root you configured. See [Self-hosted deployment](../self-hosted/deployment.md) for the network calls this instance makes for ingestion, registry resolution, and alerting.

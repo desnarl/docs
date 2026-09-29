@@ -16,8 +16,10 @@ Desnarl makes network calls in four places, allowlisted by design and kept minim
 |---|---|---|
 | Ingestion (polling your own repos) | `github.com` / `api.github.com` | Shipped |
 | Registry-resolved version-skew checks | `registry.npmjs.org` | Shipped |
-| Staleness-monitoring alert | your configured Discord/Slack webhook | Shipped |
+| Staleness-monitoring alert | your configured Discord/Slack webhook | Built, not yet active |
 | License check-in | the license portal | Not yet shipped |
+
+Two of the four are live today: ingestion and registry lookups. The staleness alert's code is built, but no released instance starts it yet, so no alert is sent. The license check-in is designed and not part of the product yet.
 
 None of these ever transmit repo content, file paths, or source code — only what each section below documents explicitly (a package name, a webhook post, a license identifier). This is **"GDPR exposure reduced to standard SaaS-signup scope, not eliminated"** — account creation and any future license check-in are still personal/business data processing under GDPR's general scope, even though repo content itself never leaves your infrastructure.
 :::
@@ -49,6 +51,10 @@ None of these ever transmit repo content, file paths, or source code — only wh
 Repeated invalid-token attempts are rate-limited, locking out a caller for a configurable window after a configurable number of failures — a distinct `429` response, separate from the `401` an individual bad request gets.
 
 ## Staleness monitoring
+
+:::caution Built, not yet active
+The monitoring code exists and is tested, but no released instance starts it. Configuring a Discord or Slack webhook today will not send anything. This section describes how alerting will work once it is switched on.
+:::
 
 `src/monitoring/` watches how long it's been since each repo in your instance last reindexed successfully, and posts an alert to a Discord webhook, a Slack webhook, or both, when a repo crosses a staleness threshold (24 hours by default). Each channel is independently optional and off by default.
 

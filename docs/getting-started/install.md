@@ -41,5 +41,5 @@ If you already have a connected MCP session open when Desnarl's code changes (a 
 
 ## Next
 
-- [Self-hosted deployment](../self-hosted/deployment.md) — ingestion auth, the network-queryable CI endpoint, staleness monitoring, and storage.
+- [Self-hosted deployment](../self-hosted/deployment.md) — ingestion auth, the network-queryable CI endpoint, storage, and staleness monitoring (built, not yet active).
 - [MCP tool reference](../mcp-tools/reference.md) — what `crossrepo_impact`, `crossrepo_consumers`, and `crossrepo_schema_refs` actually return.

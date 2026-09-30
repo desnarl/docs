@@ -40,7 +40,7 @@ A client is the program that launches the server. The model is what decides whic
 
 ## Notes
 
-### When the license key is missing {#missing-key}
+### When the license key is missing {/* #missing-key */}
 
 Desnarl does not start without a valid [license key](./install.md#license-key). What you see depends on the client:
 

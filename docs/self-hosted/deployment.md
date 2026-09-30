@@ -75,13 +75,13 @@ This webhook is an alert channel *you* configure, to a Discord or Slack workspac
 
 `src/registry/` queries the public npm registry (`registry.npmjs.org` — the only host it will ever contact for this) to compare a consumer's declared version range against what's actually published, when no lockfile is available to resolve it locally. Only the package/scope name being looked up leaves your machine — never repo content, never file paths, never source code.
 
-**Disabling it entirely:** set `CROSSREPO_GRAPH_DISABLE_REGISTRY_RESOLUTION=true` (or `1`) to turn off registry resolution for instances with no outbound egress at all. With this set, version-skew checks fall back to declared-range-only comparison and report this explicitly, distinct from a failed/unreachable lookup — never a silent gap.
+**Disabling it entirely:** set `CROSSREPOGRAPH_DISABLE_REGISTRY_RESOLUTION=true` (or `1`) to turn off registry resolution for instances with no outbound egress at all. With this set, version-skew checks fall back to declared-range-only comparison and report this explicitly, distinct from a failed/unreachable lookup — never a silent gap.
 
 ## Storage & upgrades
 
-This instance keeps its graph state in a single SQLite file, `.crossrepo-graph/graph.db`, in WAL mode.
+This instance keeps its graph state in a single SQLite file, `.crossrepograph/graph.db`, in WAL mode.
 
-**Backing it up:** because WAL mode leaves recent transactions in a separate `-wal` file, a valid backup is **not** a raw `cp .crossrepo-graph/graph.db`. Either checkpoint first, or copy the `.db`/`-wal`/`-shm` files together as one set. A `.db`-only copy taken while WAL is active can silently miss recent writes.
+**Backing it up:** because WAL mode leaves recent transactions in a separate `-wal` file, a valid backup is **not** a raw `cp .crossrepograph/graph.db`. Either checkpoint first, or copy the `.db`/`-wal`/`-shm` files together as one set. A `.db`-only copy taken while WAL is active can silently miss recent writes.
 
 **Upgrading:** on every version bump, this instance runs any pending schema migrations automatically on next startup, inside a single transaction — a migration failing partway rolls back cleanly, leaving the database exactly as it was before the upgrade attempt. If the on-disk schema version is ever newer than a given build knows about (e.g. after rolling an instance back to an older release), startup fails fast with a clear error rather than silently misinterpreting a schema it doesn't recognize.
 

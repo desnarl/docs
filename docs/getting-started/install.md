@@ -47,6 +47,8 @@ Point it at the workspace root directory that contains your sibling repos as imm
 
 The `env` block passes the license key from the section above. The workspace root is a required positional argument — the server fails fast with a clear error if it's missing or not a directory, rather than starting silently and failing later once a tool is called.
 
+Not every client uses this `mcpServers` format, and clients differ in how they show a failed start. See [Client compatibility](./compatibility.md) for the clients we have tested and what each shows when the license key is missing.
+
 ## Restarting after an update
 
 If you already have a connected MCP session open when Desnarl's code changes (a version upgrade, a config change), restart that session's connection — not just the server process — to pick up any change in tool shape.
@@ -54,4 +56,5 @@ If you already have a connected MCP session open when Desnarl's code changes (a 
 ## Next
 
 - [Self-hosted deployment](../self-hosted/deployment.md) — ingestion auth, the network-queryable CI endpoint, storage, and staleness monitoring (built, not yet active).
-- [MCP tool reference](../mcp-tools/reference.md) — what `crossrepo_impact`, `crossrepo_consumers`, and `crossrepo_schema_refs` actually return.
+- [MCP tool reference](../mcp-tools/reference.md) — what all eight tools take and actually return.
+- [Client compatibility](./compatibility.md) — the AI coding tools we have tested Desnarl with, and what we have not.

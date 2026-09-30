@@ -20,7 +20,7 @@ This section documents the source build (clone → `npm install` → `npm run bu
 
 ## License key
 
-Desnarl will not start without a license key, even for non-commercial use. Set it in the `CROSSREPO_GRAPH_LICENSE_KEY` environment variable. The key must be `crg_` followed by exactly 32 lowercase letters or digits. The check is on the format only and runs offline: it makes no network call.
+Desnarl will not start without a license key, even for non-commercial use. Set it in the `CROSSREPOGRAPH_LICENSE_KEY` environment variable. The key must be `crg_` followed by exactly 32 lowercase letters or digits. The check is on the format only and runs offline: it makes no network call.
 
 Keys are issued from your account at [desnarl.com](https://desnarl.com). If the variable is missing or malformed, the server exits at startup with an error that names it, before it opens any connection.
 
@@ -31,14 +31,14 @@ Point it at the workspace root directory that contains your sibling repos as imm
 ```json
 {
   "mcpServers": {
-    "crossrepo-graph": {
+    "crossrepograph": {
       "command": "node",
       "args": [
-        "/absolute/path/to/crossrepo-graph/dist/mcp/index.js",
+        "/absolute/path/to/crossrepograph/dist/mcp/index.js",
         "/absolute/path/to/your-workspace"
       ],
       "env": {
-        "CROSSREPO_GRAPH_LICENSE_KEY": "crg_your-license-key"
+        "CROSSREPOGRAPH_LICENSE_KEY": "crg_your-license-key"
       }
     }
   }

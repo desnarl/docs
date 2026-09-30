@@ -1,0 +1,111 @@
+name: Security audit
+
+# Runs the same `npm audit --audit-level=high` that CI gates every PR on, once
+# a day against the default branch. Why: new advisories are published against
+# packages nobody touched, and the first anyone hears of it is an unrelated PR
+# failing its audit step. (Three times in one day, 2026-09-30.) This surfaces
+# the problem the day it appears, as one labelled issue, instead of as a red
+# check on someone else's work.
+#
+# Behaviour:
+#   - advisories found  -> open a `security-audit` issue with the report, or
+#                          update the one already open (never a second issue)
+#   - audit clean again -> close that issue
+#   - audit could not run (registry unreachable after 3 tries) -> fail the
+#                          job, open no issue: an outage is not a finding
+#
+# The audit reads package-lock.json only, so there is no `npm ci` step.
+
+on:
+  schedule:
+    # 06:17 UTC daily; off the hour to stay clear of the scheduler rush.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      # Retried up to 3x, 10s apart, like CI's own audit step: the npm registry's
+      # advisory endpoint intermittently drops the TLS handshake. A finding
+      # fails every attempt; an outage does not have advisory text in it.
+      - name: npm audit
+        id: audit
+        run: |
+          for i in 1 2 3; do
+            if npm audit --audit-level=high > audit-report.txt 2>&1; then
+              echo "result=clean" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ "$i" -lt 3 ]; then sleep 10; fi
+          done
+          if grep -qE "^Severity: |vulnerabilit" audit-report.txt; then
+            echo "result=findings" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=unavailable" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the issue
+        if: steps.audit.outputs.result == 'findings'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create security-audit --color B60205 \
+            --description "Automated npm audit findings" 2>/dev/null || true
+          {
+            echo "\`npm audit --audit-level=high\` found high-severity advisories on the default branch. CI runs this same check on every PR, so PRs will fail until it is fixed."
+            echo
+            echo "**Fix:** on a branch off the default branch, run \`npm audit fix\`, check that only the lockfile changed (and which packages moved), run the tests, and open a PR. If Dependabot has already opened a security update, merge that instead."
+            echo
+            echo "Found by: $RUN_URL"
+            echo
+            echo '```'
+            head -c 60000 audit-report.txt
+            echo '```'
+          } > issue-body.md
+          existing=$(gh issue list --label security-audit --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file issue-body.md
+          else
+            gh issue create --title "npm audit: high-severity advisories on the default branch" \
+              --label security-audit --body-file issue-body.md
+          fi
+
+      - name: Close the issue if the audit is clean
+        if: steps.audit.outputs.result == 'clean'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          existing=$(gh issue list --label security-audit --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "npm audit is clean again: $RUN_URL"
+          fi
+
+      - name: Fail if the audit could not run
+        if: steps.audit.outputs.result == 'unavailable'
+        run: |
+          echo "npm audit did not complete after 3 attempts and produced no advisory text; not opening an issue for a registry outage." >&2
+          cat audit-report.txt >&2
+          exit 1

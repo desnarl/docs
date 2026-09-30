@@ -1,0 +1,31 @@
+# Custom gitleaks config for Desnarl repos, extending gitleaks' own default
+# ruleset (which already covers Stripe keys, AWS keys, private-key blocks, and a
+# generic high-entropy secret/token-assignment rule) with patterns
+# gitleaks doesn't ship by default. Replaces the earlier git-secrets-based setup
+# (.git-secrets-patterns, retired 2026-08-01) -- git-secrets combined every
+# registered pattern into one alternation regex that a BSD-grep incompatibility
+# made crash on *every* commit, not just ones containing a real secret; gitleaks
+# evaluates rules independently, so one bad rule can't take down the whole scan.
+
+title = "desnarl custom gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "supabase-secret-key"
+description = "Supabase secret/service key"
+regex = '''sb_secret_[0-9a-zA-Z_-]{20,}'''
+tags = ["supabase", "secret"]
+
+[[rules]]
+id = "supabase-service-role-jwt"
+description = "Supabase-style HS256 JWT (likely a service-role or anon key)"
+regex = '''eyJhbGciOiJIUzI1NiI[0-9a-zA-Z._-]{40,}'''
+tags = ["supabase", "jwt"]
+
+[[rules]]
+id = "gcp-service-account-json"
+description = "GCP service account JSON key marker"
+regex = '''"type":\s*"service_account"'''
+tags = ["gcp", "service-account"]

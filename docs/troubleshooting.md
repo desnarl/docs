@@ -40,6 +40,16 @@ The image is published to `ghcr.io/desnarl/crossrepograph` on each tagged releas
 - **The package is still private.** GHCR container packages default to private on their very first publish. If `docker pull ghcr.io/desnarl/crossrepograph:<tag>` returns `denied` or `unauthorized` with no credentials configured, this is the most likely cause — check whether the package has been made public yet before assuming your own setup is wrong.
 - **`linux/amd64` only.** This image is built for `linux/amd64` only as of Phase 2 — running it on an ARM host (e.g. Apple Silicon without Rosetta, an ARM-based cloud instance) will either fail to pull a matching manifest or run under slow binary translation. There is no multi-arch build yet.
 
+## `crossrepo_consumers` returns no consumers
+
+An empty `consumers` list has three common causes. Check them in this order:
+
+1. **The package is third-party.** Desnarl only reports consumers of a package that a checked-out sibling repo publishes (its `package.json` `name`). Asking about `zod` or `react` returns an empty list, which is correct.
+2. **The publishing repo isn't checked out.** If the package is yours but its repo isn't a sibling folder under the workspace root, nothing resolves it. Look at `missingSiblings` for a scoped dependency that no checked-out sibling provides.
+3. **A repo couldn't be read.** A sibling whose `package.json` can't be parsed, or whose entry point isn't built, appears in `unresolvableRepos`. Check that field before trusting a short or empty list.
+
+An import of a subpath (`@your-scope/pkg/sub`) is not counted against `@your-scope/pkg`. For how a package is judged internal, see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo_consumerspackagename). `versionSkew` is only meaningful once `consumers` is non-empty.
+
 ## Getting help
 
 Support is an **in-portal ticket system** — file a ticket from inside the license portal at [desnarl.com](https://desnarl.com), once you've created an account and signed in. That system is not live yet; this page will link directly to it once it ships.

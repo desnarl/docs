@@ -28,7 +28,7 @@ For each client we checked that it:
 4. behaves as described below when the license key is missing;
 5. still works when the client is opened on a folder that is not the Desnarl checkout.
 
-The checks used a small sample workspace, not a large real one. Each call re-reads your sibling repos (measured at 12 to 19 seconds on a real workspace), so a client with a short tool-call timeout could fail a real call that the sample never triggered.
+The checks used a small sample workspace, not a large real one. The first call on a large real workspace re-reads your sibling repos and was measured at roughly 27 to 36 seconds, so a client with a short tool-call timeout could fail that first call, which the sample never triggered. Later calls are served from a local cache and took about half a second.
 
 ## Not yet tested
 

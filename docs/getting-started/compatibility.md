@@ -11,8 +11,8 @@ Desnarl is an MCP server that your AI coding tool launches. This page lists the 
 
 | Client | Version | Tested | Notes |
 |---|---|---|---|
-| Claude Code | 2.1.285 | 2026-09-30 | |
-| Codex CLI | 0.159.2 | 2026-09-30 | Requires approving tool calls; see [Notes](#notes). |
+| Claude Code | 2.1.286 | 2026-10-01 | |
+| Codex CLI | 0.159.2 | 2026-10-01 | Requires approving tool calls; see [Notes](#notes). |
 | Antigravity CLI (`agy`) | 1.2.14 | 2026-09-30 | |
 | Grok Build (`grok`) | 1.0.44 | 2026-09-30 | |
 
@@ -25,7 +25,7 @@ For each client we checked that it:
 1. starts the server from its own configuration and shows it as connected;
 2. lists all eight [Desnarl tools](../mcp-tools/reference.md);
 3. completes a real `crossrepo_consumers` call and returns the result with no error;
-4. shows the `crossrepo_license_required` tool when the license key is missing (not yet re-checked in any client since this behavior changed; see [below](#missing-key));
+4. fails legibly when the license key is missing: the client connects and the user is told what to do (what each client showed is under [When the license key is missing](#missing-key));
 5. still works when the client is opened on a folder that is not the Desnarl checkout.
 
 The checks used a small sample workspace, not a large real one. The first call on a large real workspace re-reads your sibling repos and was measured at roughly 27 to 36 seconds, so a client with a short tool-call timeout could fail that first call, which the sample never triggered. Later calls are served from a local cache and took about half a second.
@@ -44,7 +44,18 @@ A client is the program that launches the server. The model is what decides whic
 
 With a missing or malformed [license key](./install.md#license-key), Desnarl still connects and exposes a single tool, `crossrepo_license_required`, whose text tells you to set `CROSSREPOGRAPH_LICENSE_KEY`. The eight query tools do not appear. After you fix the key, restart the client.
 
-We have not yet re-tested each client against this behavior. Earlier results, from before it existed, showed some clients reporting a failed start with no reason and others showing nothing at all, so what each client displays now may differ and is not documented here until it is checked. If Desnarl's tools are missing, or only `crossrepo_license_required` appears, check the license key first: that the variable is set where the client can see it, and that it is `crg_` followed by 32 lowercase letters or digits.
+What each client showed, re-checked on 2026-10-01 against the behavior above:
+
+- **Claude Code 2.1.286, no key.** Connects and exposes exactly one tool, `crossrepo_license_required`.
+- **Codex CLI 0.159.2, no key.** The query call did not run, and the model told the user that a valid `CROSSREPOGRAPH_LICENSE_KEY` is required. Model wording varies between runs.
+- **Antigravity CLI 1.2.14, no key and malformed key.** The client connects and lists one tool; the model returned the full license-required text for both. After the key was corrected and a new session started, all eight tools were listed and a `crossrepo_consumers` call completed.
+- **Grok Build 1.0.44, no key and malformed key.** `grok mcp doctor` reported a successful connection and one tool in both cases. With no key, a non-interactive call returned the full text. With a malformed key, the non-interactive call was not reliable: it hung twice and completed on the third try, and we do not know why. With a corrected key, `grok mcp doctor` listed eight tools; we did not run a call in that step.
+
+We did not run a malformed key on Claude Code or Codex CLI. Zed and the other clients under [Not yet tested](#not-yet-tested) were not checked.
+
+If Desnarl's tools are missing, or only `crossrepo_license_required` appears, check the license key first: that the variable is set where the client can see it, and that it is `crg_` followed by 32 lowercase letters or digits. After you fix it, restart the client. We have not shown that any client refreshes its tool list on its own, so do not rely on that.
+
+**Antigravity CLI keeps a copy of the server's tool definitions and instructions on disk.** In one run, after a bad key and then a fix, the old license-required text stayed in its cached instructions file until a new session. We saw no effect on the later eight-tool listing or call, and we do not know whether the client passes that file to the model. Restart the client after changing the key.
 
 ### How we registered the server
 

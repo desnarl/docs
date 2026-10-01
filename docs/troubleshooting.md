@@ -5,7 +5,7 @@ title: Troubleshooting
 
 # Troubleshooting & recovery
 
-This page covers the recovery scenarios that are actually documented today. A stuck license check-in past its grace period is not one of them — that mechanic isn't built yet, and its own grace-period length isn't decided, so recovery guidance for it would be a guess rather than a documented procedure. This section will be extended once that ships; until then, treat a license-related failure as outside its scope.
+This page covers the recovery scenarios that are actually documented today. A stuck license check-in past its grace period is not one of them — that mechanic isn't built yet, and its own grace-period length isn't decided, so recovery guidance for it would be a guess rather than a documented procedure. This section will be extended once that ships. A missing or malformed license key is covered below.
 
 ## SQLite corruption
 
@@ -49,6 +49,14 @@ An empty `consumers` list has three common causes. Check them in this order:
 3. **A repo couldn't be read.** A sibling whose `package.json` can't be parsed, or whose entry point isn't built, appears in `unresolvableRepos`. Check that field before trusting a short or empty list.
 
 An import of a subpath (`@your-scope/pkg/sub`) is not counted against `@your-scope/pkg`. For how a package is judged internal, see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo_consumerspackagename). `versionSkew` is only meaningful once `consumers` is non-empty.
+
+## Only `crossrepo_license_required` appears, or Desnarl's tools are missing
+
+With no license key, or one that is not `crg_` followed by 32 lowercase letters or digits, the host connects and shows a single tool, `crossrepo_license_required`. Its text tells you to set `CROSSREPOGRAPH_LICENSE_KEY`. The eight query tools do not appear. The server also prints the message on stderr, which you will see if you launch it from a terminal.
+
+Fix: set `CROSSREPOGRAPH_LICENSE_KEY` in the environment the host passes to the server (for example the `env` block in the [install page](./getting-started/install.md#add-it-to-your-mcp-client)), then restart the host. We have not verified that any host refreshes its tool list without a restart. If the tools are missing and `crossrepo_license_required` is not shown either, check the key first, then see [Client compatibility](./getting-started/compatibility.md#missing-key).
+
+A bad key does not make the server exit with an error: it stays connected and exits 0 when stdin closes.
 
 ## Getting help
 

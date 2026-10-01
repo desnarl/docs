@@ -25,7 +25,7 @@ For each client we checked that it:
 1. starts the server from its own configuration and shows it as connected;
 2. lists all eight [Desnarl tools](../mcp-tools/reference.md);
 3. completes a real `crossrepo_consumers` call and returns the result with no error;
-4. behaves as described below when the license key is missing;
+4. shows the `crossrepo_license_required` tool when the license key is missing (not yet re-checked in any client since this behavior changed; see [below](#missing-key));
 5. still works when the client is opened on a folder that is not the Desnarl checkout.
 
 The checks used a small sample workspace, not a large real one. The first call on a large real workspace re-reads your sibling repos and was measured at roughly 27 to 36 seconds, so a client with a short tool-call timeout could fail that first call, which the sample never triggered. Later calls are served from a local cache and took about half a second.
@@ -42,13 +42,9 @@ A client is the program that launches the server. The model is what decides whic
 
 ### When the license key is missing {/* #missing-key */}
 
-Desnarl does not start without a valid [license key](./install.md#license-key). What you see depends on the client:
+With a missing or malformed [license key](./install.md#license-key), Desnarl still connects and exposes a single tool, `crossrepo_license_required`, whose text tells you to set `CROSSREPOGRAPH_LICENSE_KEY`. The eight query tools do not appear. After you fix the key, restart the client.
 
-- **Claude Code** shows the server as failed, without a reason.
-- **Grok Build** reports a failed handshake in `grok mcp doctor`, without a reason.
-- **Antigravity CLI** and **Codex CLI** show nothing at all. The model simply says it has no such tools.
-
-If Desnarl's tools are missing and there is no error, check the license key first: that the variable is set where the client can see it, and that it is `crg_` followed by 32 lowercase letters or digits.
+We have not yet re-tested each client against this behavior. Earlier results, from before it existed, showed some clients reporting a failed start with no reason and others showing nothing at all, so what each client displays now may differ and is not documented here until it is checked. If Desnarl's tools are missing, or only `crossrepo_license_required` appears, check the license key first: that the variable is set where the client can see it, and that it is `crg_` followed by 32 lowercase letters or digits.
 
 ### How we registered the server
 

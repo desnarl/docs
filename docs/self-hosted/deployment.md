@@ -89,4 +89,6 @@ This instance keeps its graph state in a single SQLite file, `.crossrepograph/gr
 
 ## Next
 
+See [The savings report](./savings-report.md) for where the per-workspace report lives and how to read it.
+
 See [Troubleshooting](../troubleshooting.md) for recovery from SQLite corruption, failed ingestion, and CI check failures.

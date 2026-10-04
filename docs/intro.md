@@ -9,6 +9,8 @@ sidebar_position: 1
 
 Desnarl traces impact, consumers, and schema references across every repo in your workspace — self-hosted, on your own infrastructure. In a polyrepo codebase, "what would changing this affect?" normally means grepping across every sibling checkout by hand, and easily missing a consumer that imports a symbol under a name you didn't think to search for. Desnarl answers that in one call, by resolving real import/export edges, shared `package.json` dependencies, and SQL schema references across every sibling repo checked out under your workspace root.
 
+Because the edges are resolved by static analysis of your checked-out source rather than by a model re-reading your code each time, the same checkout gives the same answer to the same question, and every result names the consuming repo, file and import site, so you can check it by opening the file. That repeatable, inspectable answer is what makes it suitable for a CI check on a change, not only for ad hoc questions. It is a heuristic over literal names, not a proof of completeness; see below for what it does not catch.
+
 Start with [Getting started → Install](./getting-started/install.md), then [Self-hosted deployment](./self-hosted/deployment.md) once you're ready to run Desnarl continuously against your own repos in CI.
 
 :::note Naming: Desnarl vs. crossrepograph

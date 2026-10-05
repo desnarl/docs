@@ -46,7 +46,7 @@ An empty `consumers` list has three common causes. Check them in this order:
 
 1. **The package is third-party.** Desnarl only reports consumers of a package that a checked-out sibling repo publishes (its `package.json` `name`). Asking about `zod` or `react` returns an empty list, which is correct.
 2. **The publishing repo isn't checked out.** If the package is yours but its repo isn't a sibling folder under the workspace root, nothing resolves it. Look at `missingSiblings` for a scoped dependency that no checked-out sibling provides.
-3. **A repo couldn't be read.** A sibling whose `package.json` can't be parsed, or whose entry point isn't built, appears in `unresolvableRepos`. Check that field before trusting a short or empty list.
+3. **A repo couldn't be read.** A sibling whose `package.json` can't be parsed, whose declared entry point isn't built (`missing_entry_file`), or that has a name but declares no entry (`no_entry_declared`), appears in `unresolvableRepos`. Check that field before trusting a short or empty list.
 
 An import of a subpath (`@your-scope/pkg/sub`) is not counted against `@your-scope/pkg`. For how a package is judged internal, see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo_consumerspackagename). `versionSkew` is only meaningful once `consumers` is non-empty.
 

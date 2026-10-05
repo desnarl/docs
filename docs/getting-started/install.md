@@ -36,7 +36,7 @@ After you set or fix the key, restart the host so it starts the server again wit
 
 ## Add it to your MCP client
 
-Point it at the workspace root directory that contains your sibling repos as immediate subdirectories:
+Point it at the workspace root directory that contains your sibling repos as immediate subdirectories. The layout must be flat: a subdirectory counts as a repo only if it has a `package.json` or `go.mod` at its top level, and repos nested deeper are not found:
 
 ```json
 {

@@ -269,6 +269,15 @@ Records a person's verdict on one HTTP-indirection match, so a spurious one can 
 
 It writes one query-log entry per call and never rewrites an existing one. The entry is always marked `"manual"`: this tool has no automated path, and, like `crossrepo_confirm`, it trusts what it is told.
 
+## Cache fields {/* #cache-fields */}
+
+`crossrepo_impact` and `crossrepo_consumers` parse each sibling repo once and keep the result, so a repeat query does not read an unchanged repo again. Both responses report how much of that cache a query used:
+
+- `cacheHit`: `true` only when every repo in the query was served from the cache. `false` otherwise, including when the cache was not used at all.
+- `cache`: `{ "hitRepos": <number>, "totalRepos": <number> }`, how many of the repos in the query were served from the cache. These are counts only, with no repo names.
+
+Repos with no declared entry point (typically applications rather than libraries) are never cached. On a workspace with many of them, `cacheHit` is always `false` while `cache` still shows the repos that were cached, for example `{ "hitRepos": 2, "totalRepos": 12 }`. That is expected and does not affect the answer: an uncached repo is simply read again on every query.
+
 ## Rendering Mermaid output
 
 `crossrepo_impact` and `crossrepo_consumers` both accept an optional `format` parameter: `"json"` (the default, shown above) or `"mermaid"`.

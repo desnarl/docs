@@ -58,6 +58,14 @@ Fix: set `CROSSREPOGRAPH_LICENSE_KEY` in the environment the host passes to the 
 
 A bad key does not make the server exit with an error: it stays connected and exits 0 when stdin closes.
 
+## How long should a query take?
+
+On a 12-repo workspace of about 10,000 files (an Apple M4 with 32 GB of RAM), the first query after the server started took about 1 second, and later queries about 0.7 seconds. Starting the server and connecting adds about half a second. Times grow with the number of repos and files, and depend on your disk.
+
+If a query takes much longer than that, the cause is usually the workspace or the machine rather than normal operation. Check that no other heavy process is running. Query results report how much of the cache was used, in the `cache` field described under [Cache fields](./mcp-tools/reference.md#cache-fields).
+
+*Measured on 2026-10-05, against `crossrepo_consumers` and `crossrepo_impact`, on engine commit `527874d`.*
+
 ## Getting help
 
 Support is an **in-portal ticket system** — file a ticket from inside the license portal at [desnarl.com](https://desnarl.com), once you've created an account and signed in. That system is not live yet; this page will link directly to it once it ships.

@@ -26,7 +26,7 @@ This section documents the source build (clone → `npm install` → `npm run bu
 
 Desnarl's tools are unavailable without a license key, even for non-commercial use. Set it in the `CROSSREPOGRAPH_LICENSE_KEY` environment variable. The key must be `crg_` followed by exactly 32 lowercase letters or digits. The check is on the format only and runs offline: it makes no network call.
 
-Early keys are issued by hand. To ask for one, use the key request form on [desnarl.com](https://desnarl.com) (no account needed). We send the key to the address you give. Do not ask for a key, or post one, in a GitHub issue or discussion: those are public. A self-serve portal that issues keys automatically is planned but is not built yet, and this page will change when it is.
+Early keys are issued by hand. The way to request one is not open yet, and this page will say how once it is. Do not ask for a key, or post one, in a GitHub issue or discussion: those are public. A self-serve portal that issues keys automatically is planned but is not built yet, and this page will change when it is.
 
 ### If the key is missing or malformed
 

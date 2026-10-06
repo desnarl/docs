@@ -8,12 +8,46 @@
 # Claude, "Generated with ... Claude Code", or an @anthropic.com address
 # (the strongest, lowest-false-positive signal, since it's not a word a
 # human commit would plausibly contain for any other reason).
+#
+# Two modes:
+#   check-no-ai-attribution.sh <git-rev-range>   commit messages in the range
+#   check-no-ai-attribution.sh --text            PR title and body, read from
+#                                                the PR_TITLE and PR_BODY
+#                                                environment variables (never
+#                                                argv, so PR text is never
+#                                                parsed as shell); unset or
+#                                                empty is fine. Also matches a
+#                                                claude.ai/code/session_ link.
 
 set -euo pipefail
 
-RANGE="${1:?usage: check-no-ai-attribution.sh <git-rev-range>}"
-
 PATTERN='(co-authored-by:.*claude|generated with.*claude code|anthropic\.com)'
+
+if [ "${1:-}" = "--text" ]; then
+  TEXT_PATTERN='(co-authored-by:.*claude|generated with.*claude code|anthropic\.com|claude\.ai/code/session_)'
+  FOUND=0
+  for field in title body; do
+    case "$field" in
+      title) text="${PR_TITLE:-}" ;;
+      body) text="${PR_BODY:-}" ;;
+    esac
+    text=$(printf '%s' "$text" | tr -d '\r')
+    if printf '%s' "$text" | grep -qiE "$TEXT_PATTERN"; then
+      echo "::error::The PR ${field} contains AI-tool attribution, which is not allowed in this repo:"
+      # Indent echoed lines so a line starting "::" cannot become a workflow command.
+      printf '%s\n' "$text" | grep -iE "$TEXT_PATTERN" | sed 's/^/  /' || true
+      FOUND=1
+    fi
+  done
+  if [ "$FOUND" -eq 1 ]; then
+    echo "AI-tool attribution found in the PR text. Edit it before this can merge." >&2
+    exit 1
+  fi
+  echo "No AI-tool attribution found in the PR title or body."
+  exit 0
+fi
+
+RANGE="${1:?usage: check-no-ai-attribution.sh <git-rev-range> | --text}"
 
 FOUND=0
 while IFS= read -r sha; do

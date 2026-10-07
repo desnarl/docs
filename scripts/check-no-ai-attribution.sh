@@ -1,60 +1,62 @@
 #!/usr/bin/env bash
-# Mechanized backstop for CLAUDE.md's non-negotiable "no AI attribution in
+# Mechanized backstop for the project's non-negotiable "no AI attribution in
 # commits or PRs" rule — added 2026-09-21 after the rule was violated twice
-# in one Desnarl session despite being explicit and in context both times. Fails if any commit in the given git revision range
+# in one desnarl/web + crossrepograph session despite being explicit and in
+# context both times. Fails if any commit in the given git revision range
 # contains AI-tool attribution in its message.
 #
 # Patterns matched, case-insensitive: a "Co-Authored-By:" trailer naming
 # Claude, "Generated with ... Claude Code", or an @anthropic.com address
 # (the strongest, lowest-false-positive signal, since it's not a word a
-# human commit would plausibly contain for any other reason).
+# human commit would plausibly contain for any other reason), or a
+# claude.ai/code/session_ link (text mode only).
 #
 # Two modes:
 #   check-no-ai-attribution.sh <git-rev-range>   commit messages in the range
-#   check-no-ai-attribution.sh --text            PR title and body, read from
-#                                                the PR_TITLE and PR_BODY
-#                                                environment variables (never
-#                                                argv, so PR text is never
-#                                                parsed as shell); unset or
-#                                                empty is fine. Also matches a
-#                                                claude.ai/code/session_ link.
+#   check-no-ai-attribution.sh --text            PR_TITLE / PR_BODY from the
+#       environment (never argv, so attacker-controlled text is never parsed
+#       by a shell); unset or empty is treated as empty.
 
 set -euo pipefail
 
-PATTERN='(co-authored-by:.*claude|generated with.*claude code|anthropic\.com)'
+MODE="${1:?usage: check-no-ai-attribution.sh <git-rev-range> | --text}"
 
-if [ "${1:-}" = "--text" ]; then
-  TEXT_PATTERN='(co-authored-by:.*claude|generated with.*claude code|anthropic\.com|claude\.ai/code/session_)'
+PATTERN='(co-authored-by:.*claude|generated with.*claude code|anthropic\.com)'
+TEXT_PATTERN="${PATTERN}|claude\.ai/code/session_"
+
+# Check one PR text field; $1 = field name, $2 = its content. Matched lines are
+# indented so an echoed line can never start with "::" and inject a workflow
+# command.
+check_text_field() {
+  local field="$1" content="${2//$'\r'/}"
+  if printf '%s\n' "$content" | grep -qiE -- "$TEXT_PATTERN"; then
+    echo "::error::The PR ${field} contains AI-tool attribution, which is not allowed in this repo:"
+    printf '%s\n' "$content" | grep -iE -- "$TEXT_PATTERN" | sed 's/^/    /' || true
+    return 1
+  fi
+  return 0
+}
+
+if [ "$MODE" = "--text" ]; then
   FOUND=0
-  for field in title body; do
-    case "$field" in
-      title) text="${PR_TITLE:-}" ;;
-      body) text="${PR_BODY:-}" ;;
-    esac
-    text=$(printf '%s' "$text" | tr -d '\r')
-    if printf '%s' "$text" | grep -qiE "$TEXT_PATTERN"; then
-      echo "::error::The PR ${field} contains AI-tool attribution, which is not allowed in this repo:"
-      # Indent echoed lines so a line starting "::" cannot become a workflow command.
-      printf '%s\n' "$text" | grep -iE "$TEXT_PATTERN" | sed 's/^/  /' || true
-      FOUND=1
-    fi
-  done
+  check_text_field title "${PR_TITLE:-}" || FOUND=1
+  check_text_field body "${PR_BODY:-}" || FOUND=1
   if [ "$FOUND" -eq 1 ]; then
-    echo "AI-tool attribution found in the PR text. Edit it before this can merge." >&2
+    echo "Edit the offending text in the pull request description to remove the AI-tool attribution; no force-push is needed." >&2
     exit 1
   fi
   echo "No AI-tool attribution found in the PR title or body."
   exit 0
 fi
 
-RANGE="${1:?usage: check-no-ai-attribution.sh <git-rev-range> | --text}"
+RANGE="$MODE"
 
 FOUND=0
 while IFS= read -r sha; do
   [ -z "$sha" ] && continue
   msg=$(git log -1 --format=%B "$sha" 2>/dev/null || true)
   if printf '%s' "$msg" | grep -qiE "$PATTERN"; then
-    echo "::error::Commit ${sha} contains AI-tool attribution, which is not allowed in this repo (see CLAUDE.md):"
+    echo "::error::Commit ${sha} contains AI-tool attribution, which is not allowed in this repo:"
     printf '%s\n' "$msg" | grep -iE "$PATTERN" || true
     FOUND=1
   fi

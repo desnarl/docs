@@ -24,7 +24,7 @@ The clients above were run on macOS. Separately, we installed the packed npm tar
 
 | Platform | Status | Evidence |
 |---|---|---|
-| macOS | Tested | Run locally on every release candidate; also used for all client runs above. |
+| macOS | Tested | Used for all client runs above and for local development. |
 | Linux (native, x64) | Tested | [Clean-install run on Ubuntu, 2026-10-07](https://github.com/desnarl/engine/actions/runs/37627145497/job/112811715698), with the tarball install and a real MCP call over stdio. |
 | Docker (`node:24-trixie-slim`, x64) | Tested | [Clean-container run, 2026-10-07](https://github.com/desnarl/engine/actions/runs/37627145497/job/112811715736). The image has no compiler, so the native modules load from their prebuilt binaries. |
 | Windows | Not tested | Use Docker or WSL. |

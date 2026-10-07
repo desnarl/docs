@@ -36,7 +36,7 @@ We have not tested the following, so we do not say whether they work: Claude Des
 
 ## A client is not a model
 
-A client is the program that launches the server. The model is what decides which tool to call and how to use the answer. These results say the plumbing works in each client. They do not say that any particular model picks the right tool, asks the right question, or reports the result accurately. We have seen a model report a call as done after the call had failed.
+A client is the program that launches the server. The model is what decides which tool to call and how to use the answer. These results say the plumbing works in each client. They do not say that any particular model picks the right tool, asks the right question, or reports the result accurately. We have seen a model report a call as done after the call had failed. What we have run on models is on [What we have tested with models](./model-testing.md).
 
 ## Notes
 

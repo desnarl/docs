@@ -109,7 +109,7 @@ const config: Config = {
           items: [{label: 'GitHub', href: 'https://github.com/desnarl/docs'}],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Desnarl.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Cascade Logic Ltd. Desnarl is a trading name of Cascade Logic Ltd, registered in England and Wales (no. 16782809). Registered office: ATBS House, London Road, Beccles, England, NR34 8TS.`,
     },
     prism: {
       theme: prismThemes.github,

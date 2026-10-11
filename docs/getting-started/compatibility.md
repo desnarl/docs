@@ -16,7 +16,25 @@ Desnarl is an MCP server that your AI coding tool launches. This page lists the 
 | Antigravity CLI (`agy`) | 1.2.14 | 2026-09-30 | |
 | Grok Build (`grok`) | 1.0.44 | 2026-09-30 | |
 
-All four were run on macOS. We have not tested Windows or Linux.
+All four clients were run on macOS. For the operating systems and install paths themselves, see [Platforms](#platforms).
+
+## Platforms
+
+The clients above were run on macOS. Separately, we installed the packed npm tarball into an empty directory with an empty npm cache and a fresh state directory, then started the installed `crossrepograph` command and checked that it answers an MCP `initialize` request over stdio. That is the clean-install check. It does not run a client, and it is not the source build described on the [install page](./install.md).
+
+| Platform | Status | Evidence |
+|---|---|---|
+| macOS | Tested | Used for all client runs above and for local development. |
+| Linux (native, x64) | Tested | [Clean-install run on Ubuntu, 2026-10-07](https://github.com/desnarl/engine/actions/runs/37627145497/job/112811715698), with the tarball install and a real MCP call over stdio. |
+| Docker (`node:24-trixie-slim`, x64) | Tested | [Clean-container run, 2026-10-07](https://github.com/desnarl/engine/actions/runs/37627145497/job/112811715736). The image has no compiler, so the native modules load from their prebuilt binaries. |
+| Windows | Not tested | Use Docker or WSL. |
+| Linux arm64 | Tested with build tools | [Native clean-install run](https://github.com/desnarl/engine/actions/runs/37793395435/job/113366413736) and [Docker run on `node:24-trixie`](https://github.com/desnarl/engine/actions/runs/37793395435/job/113366413627), 2026-10-08. A compiler-less install does not work: see below. |
+
+The two run links are in a private repository, so you may not be able to open them. They were green on that date.
+
+**Linux arm64 needs a build toolchain.** The published `tree-sitter-typescript` 0.23.2 ships a `linux-arm64` prebuilt binary that is really an x86-64 build, so on arm64 it cannot be loaded and npm must compile it. Install Python, make and a C++ compiler first (the full `node:24-trixie` image has them; `node:24-trixie-slim` does not). This is an upstream packaging bug, [tree-sitter-typescript #324](https://github.com/tree-sitter/tree-sitter-typescript/issues/324), fixed on their side but not yet in a published release.
+
+**Use a recent base image.** On `node:24-bookworm-slim` (Debian 12), the installed server fails to load: its tree-sitter prebuilt binary needs a newer C++ runtime than Debian 12 ships, npm falls back to compiling, and that fails without a compiler toolchain. Use a Debian 13 (trixie) based image such as `node:24-trixie-slim`, or an image with build tools (Python, make and a C++ compiler) installed.
 
 ## What "tested" means
 
@@ -36,7 +54,7 @@ We have not tested the following, so we do not say whether they work: Claude Des
 
 ## A client is not a model
 
-A client is the program that launches the server. The model is what decides which tool to call and how to use the answer. These results say the plumbing works in each client. They do not say that any particular model picks the right tool, asks the right question, or reports the result accurately. We have seen a model report a call as done after the call had failed.
+A client is the program that launches the server. The model is what decides which tool to call and how to use the answer. These results say the plumbing works in each client. They do not say that any particular model picks the right tool, asks the right question, or reports the result accurately. We have seen a model report a call as done after the call had failed. What we have run on models is on [What we have tested with models](./model-testing.md).
 
 ## Notes
 

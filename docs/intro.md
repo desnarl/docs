@@ -14,7 +14,7 @@ Because the edges are resolved by static analysis of your checked-out source rat
 Start with [Getting started → Install](./getting-started/install.md), then [Self-hosted deployment](./self-hosted/deployment.md) once you're ready to run Desnarl continuously against your own repos in CI.
 
 :::note Naming: Desnarl vs. crossrepograph
-"Desnarl" is the public product name. The self-hosted server underneath it keeps its original engineering name, **crossrepograph**, in a few places that are safe (and expected) to see throughout this documentation: the three MCP tool names (`crossrepo_impact`, `crossrepo_consumers`, `crossrepo_schema_refs`) and on-disk paths (`.crossrepograph/graph.db`, `.crossrepograph/query-log.jsonl`, `.crossrepograph/repos/`). That isn't inconsistent documentation — it's the actual package name, left as-is rather than renamed for the docs.
+"Desnarl" is the public product name. The self-hosted server underneath it keeps its original engineering name, **crossrepograph**, in a few places that are safe (and expected) to see throughout this documentation: the eight MCP tool names (`crossrepo_impact`, `crossrepo_consumers`, `crossrepo_schema_refs` and five more, all listed in the [tool reference](./mcp-tools/reference.md)) and on-disk paths (`.crossrepograph/graph.db`, `.crossrepograph/query-log.jsonl`, `.crossrepograph/repos/`). That isn't inconsistent documentation — it's the actual package name, left as-is rather than renamed for the docs.
 :::
 
 ## What Desnarl is not

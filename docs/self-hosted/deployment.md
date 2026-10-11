@@ -79,15 +79,17 @@ This webhook is an alert channel *you* configure, to a Discord or Slack workspac
 
 ## Storage & upgrades
 
-This instance keeps its graph state in a single SQLite file, `.crossrepograph/graph.db`, in WAL mode.
+This instance keeps its graph state in a single SQLite file, `graph.db`, in your [state directory](./state-directory.md), in WAL mode.
 
-**Backing it up:** because WAL mode leaves recent transactions in a separate `-wal` file, a valid backup is **not** a raw `cp .crossrepograph/graph.db`. Either checkpoint first, or copy the `.db`/`-wal`/`-shm` files together as one set. A `.db`-only copy taken while WAL is active can silently miss recent writes.
+**Backing it up:** because WAL mode leaves recent transactions in a separate `-wal` file, a valid backup is **not** a raw `cp graph.db`. Either checkpoint first, or copy the `.db`/`-wal`/`-shm` files together as one set. A `.db`-only copy taken while WAL is active can silently miss recent writes.
 
 **Upgrading:** on every version bump, this instance runs any pending schema migrations automatically on next startup, inside a single transaction — a migration failing partway rolls back cleanly, leaving the database exactly as it was before the upgrade attempt. If the on-disk schema version is ever newer than a given build knows about (e.g. after rolling an instance back to an older release), startup fails fast with a clear error rather than silently misinterpreting a schema it doesn't recognize.
 
 **Rollback:** since a failed migration already rolls back automatically, "rolling back" in practice means reverting to the prior build. Restore your last checkpointed backup if you suspect any drift, then run the prior version against it. Version-currency (whether a newer release exists) is left to your own vigilance for now — this instance doesn't check in for update notifications.
 
 ## Next
+
+See [What Desnarl keeps on disk](./state-directory.md) for where the state directory is and what each file in it is.
 
 See [The savings report](./savings-report.md) for where the per-workspace report lives and how to read it.
 

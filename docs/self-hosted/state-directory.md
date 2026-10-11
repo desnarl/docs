@@ -1,0 +1,69 @@
+---
+sidebar_position: 3
+title: What Desnarl keeps on disk
+---
+
+# What Desnarl keeps on disk
+
+Desnarl writes its own working files to one folder, the **state directory**. It never writes into the repos it reads. This page says where that folder is, what each file in it is, and what to keep out of version control and out of a support request.
+
+## Where the state directory is
+
+The server prints the folder on stderr every time it starts, as a line beginning `crossrepograph: state directory:`. Many MCP clients do not show a server's stderr, so the default location below is also worth knowing.
+
+**You choose it:** set `CROSSREPOGRAPH_STATE_DIR` to an absolute path in the `env` block of the server's MCP configuration, next to the license key. A relative path is refused.
+
+**Otherwise, a per-workspace default** under your operating system's user-data directory, so two workspaces never share one set of files:
+
+| Where you run it | Default location |
+|---|---|
+| macOS | `~/Library/Application Support/crossrepograph/<workspace-name>-<hash>/` |
+| Linux | `$XDG_STATE_HOME/crossrepograph/<workspace-name>-<hash>/`, or `~/.local/state/crossrepograph/<workspace-name>-<hash>/` when `XDG_STATE_HOME` is unset |
+| Windows | `%LOCALAPPDATA%\crossrepograph\<workspace-name>-<hash>\` |
+| Docker image | `/state`, declared as a volume |
+
+`<hash>` is derived from the workspace's real path, so you cannot work it out by hand: list the parent folder and look for the one that starts with your workspace's name. **Moving or renaming a workspace changes the hash**, so the server starts with a fresh, empty state directory. The old one is left where it was.
+
+The default does not depend on where your MCP client happens to launch the server from, and it lives outside the server's own install folder, so upgrading the install does not replace it.
+
+The folder is created on first start, readable and writable by your user only (mode `0700` on macOS and Linux). If it cannot be created or written, the server prints a plain message on stderr and exits with a non-zero status. A missing or malformed license key never reaches this point: the server serves only `crossrepo_license_required` and touches no state.
+
+### Docker
+
+The image sets `CROSSREPOGRAPH_STATE_DIR=/state`. Mount a volume there, or the files are lost when the container is removed. The image runs as the `node` user (uid 1000), so a bind-mounted host folder must be writable by uid 1000.
+
+### Earlier versions
+
+Earlier builds kept this data in `.crossrepograph/` inside the checkout. Nothing is migrated automatically. If that folder still exists and `CROSSREPOGRAPH_STATE_DIR` is unset, the server prints a one-time notice on stderr naming it. To keep using the old data, set `CROSSREPOGRAPH_STATE_DIR` to that folder.
+
+## What each file is
+
+| File | What it is |
+|---|---|
+| `graph.db` | The SQLite graph of your workspace: the repos, packages and links Desnarl has indexed. |
+| `graph.db-wal`, `graph.db-shm` | SQLite's write-ahead log and its shared-memory index. They hold recent writes that are not yet in `graph.db`, and they come and go while the server runs. |
+| `query-log.jsonl` | One line per tool call: the tool, the symbol or query you asked about, the result count, a timestamp, and the consuming repos the call returned. It is the source for the ledger below. |
+| `query-ledger.md` | A readable summary regenerated from `query-log.jsonl`. |
+| `savings-audit-log.jsonl` | One line per call, recording the figures behind the savings report. |
+| `savings-audit-snapshot.json` | The latest per-workspace count of links by kind and repos by language, written as a by-product of a call. The savings report reads it instead of walking your workspace again. |
+| `savings-audit-report.md` | The savings report. See [The savings report](./savings-report.md). |
+| `monitoring-state.json` | Staleness-alert bookkeeping. Staleness monitoring is [built but not yet active](./deployment.md#staleness-monitoring), so expect this file only in an instance where you have started it yourself. |
+| `repos/<repo-name>/` | Local clones of remote repos fetched by [ingestion](./deployment.md#ingestion-authentication). Present only if you use remote ingestion. |
+
+The report and ledger files are regenerated after every tool call, so editing them by hand achieves nothing.
+
+## Keep it out of version control
+
+**Desnarl never creates or edits a `.gitignore` entry anywhere.** Two things keep the state directory out of your repos by default: the default location is outside your workspace, and the server refuses to start if the state directory, including one you set, resolves to a place inside the workspace it is indexing.
+
+That does not cover every case. If you point `CROSSREPOGRAPH_STATE_DIR` into a folder that is inside some *other* git repository, add it to that repo's `.gitignore` yourself. The same applies to a `.crossrepograph/` folder left over from an earlier build.
+
+## Treat the query log as sensitive
+
+`query-log.jsonl` records what you and your agents asked about, and the repos each answer named. That can include **internal repo and package names**, which many organizations treat as confidential. The savings audit log, the ledger and the report carry repo names and counts too.
+
+- Do not commit these files, paste them into an issue, or attach them to a support request.
+- Do not send `graph.db` off your network. That includes sending it for debugging. See [Troubleshooting → Getting help](../troubleshooting.md#getting-help).
+- Back up the whole folder as one set, and checkpoint `graph.db` first. The steps are in [Deployment guide → Storage & upgrades](./deployment.md#storage--upgrades).
+
+None of these files is sent anywhere by Desnarl. The network calls it does make are listed in the [Deployment guide](./deployment.md).

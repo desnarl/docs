@@ -9,7 +9,7 @@ This page covers the recovery scenarios that are actually documented today. A st
 
 ## SQLite corruption
 
-`.crossrepograph/graph.db` is a single SQLite file; on-disk corruption (a killed process mid-write with WAL not yet checkpointed, a bad disk sector, a partial volume-mount copy) surfaces as SQLite's own error on next open, most commonly `database disk image is malformed`.
+`graph.db`, in your [state directory](./self-hosted/state-directory.md), is a single SQLite file; on-disk corruption (a killed process mid-write with WAL not yet checkpointed, a bad disk sector, a partial volume-mount copy) surfaces as SQLite's own error on next open, most commonly `database disk image is malformed`.
 
 There is no in-place repair path for a corrupted `.db` file. Recovery is to restore your most recent checkpointed backup (see [Self-hosted deployment → Storage & upgrades](./self-hosted/deployment.md#storage--upgrades) for what a valid backup actually requires) and let this instance's own migration/reindex path bring it back up to date on next startup. There is currently no automated corruption *detection* separate from the open failing outright.
 
@@ -21,7 +21,7 @@ A scheduled pull can fail for a few distinct, categorized reasons rather than on
 - **`network-error`** — the request to the git remote failed outright, or returned a non-2xx status that wasn't an auth rejection. Fix: check your own network path to the remote; this isn't something this instance can recover from on its own.
 - **`host-rejected`** / **`redirect-rejected`** — the configured remote URL (or a redirect it returned) isn't `github.com`/`api.github.com` over `https`. This is a configuration error, not a transient failure — correct the configured remote URL rather than retrying.
 
-None of these leave the local clone at `.crossrepograph/repos/<repo-name>/` in a state that needs manual cleanup: a failed fetch simply leaves the prior successful clone in place, unindexed until the next successful poll.
+None of these leave the local clone at `repos/<repo-name>/` in your [state directory](./self-hosted/state-directory.md) in a state that needs manual cleanup: a failed fetch simply leaves the prior successful clone in place, unindexed until the next successful poll.
 
 ## CI check reports "could not verify"
 
@@ -72,4 +72,4 @@ Support is an **in-portal ticket system** — file a ticket from inside the lice
 
 **There is no email support and no public Discord (or other community) support channel, for any tier — that's a deliberate, permanent decision, not a temporary gap.** Don't file an issue on this repo, or reach out via any other channel, expecting a support response.
 
-When the in-portal ticket system is available: **never share your license key or your deploy key/PAT in a support request.** If you need to demonstrate a problem, share only the output of your instance's self-diagnostic report (license status, staleness, version) — never the raw credential. Likewise, never send `.crossrepograph/graph.db` or any indexed repo content off your own network for debugging — Desnarl's entire data-custody guarantee depends on that content never leaving your infrastructure, and a support request is not an exception to it.
+When the in-portal ticket system is available: **never share your license key or your deploy key/PAT in a support request.** If you need to demonstrate a problem, share only the output of your instance's self-diagnostic report (license status, staleness, version) — never the raw credential. Likewise, never send `graph.db`, `query-log.jsonl` or any indexed repo content off your own network for debugging — Desnarl's entire data-custody guarantee depends on that content never leaving your infrastructure, and a support request is not an exception to it.

@@ -5,7 +5,7 @@ title: What we have tested with models
 
 # What we have tested with models
 
-[Client compatibility](./compatibility.md) says whether a client can start Desnarl and call its tools. This page covers a different question: given the tools, does a model use them sensibly and report the result accurately? Here is what we ran, how it was scored, and what we have not run.
+[Client compatibility](./compatibility.md) says whether a client can start Desnarl and call its tools. This page covers a different question: given the tools, does a model use them sensibly and report the result accurately? Here is what we ran on a synthetic workspace, what we ran on real open-source code, how it was scored, and what we have not run.
 
 This page records measurements. It is not a ranking, and it does not say that Desnarl "works with" any model.
 
@@ -67,9 +67,73 @@ We checked the scorer against 108 answers written by a different model (48, then
 
 So a failure on scenario 2 or 10 may be a model error or a scorer miss. A pass means we observed no wrong answer. It is not proof that none could occur. None of the failures in the table above comes from these misses.
 
+## Real code
+
+These runs used real open-source code instead of the synthetic workspace. They are a separate measurement from the one above: different workspaces, different scenarios, different Claude Code version. They are not a ranking, and they do not say that any model "works with" Desnarl.
+
+### What was run
+
+| Item | Value |
+|---|---|
+| Client | Claude Code 2.1.294, run headless |
+| Models | Haiku, Sonnet 5.5, Opus 5.5 (host-reported IDs `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5`) |
+| Run date | 2026-10-08 (the tool-only pass below: 2026-10-07) |
+| Workspaces | 8 workspaces made of 67 open-source repos, each repo pinned to a recorded commit. TypeScript: Anthropic SDK (4 repos), Stripe samples (16), OpenAI samples (14), Temporal samples (8). Go: Kubernetes (6), Prometheus (7), NATS (5), Charm (7) |
+| Scenarios | Only 2 of the 10: scenario 2 (who consumes a shared package, and whether version ranges conflict) on every workspace, and scenario 1 (impact of changing an exported symbol) on Kubernetes and NATS |
+| Repeats | Haiku and Sonnet 3 per cell. Opus 1 per cell, except the Anthropic SDK workspace, where it ran 3 |
+
+**The Haiku here is not the Haiku 4.5 in the synthetic table above. Do not compare the two.** Opus ran fewer repeats than the 3 we planned, so its cells are partial, not full. Each run used a fresh copy of the workspace, registry resolution switched off, and no network access to the repos. The expected answers were read from the code by grep and manual reading, without running Desnarl's tools.
+
+We did not run scenarios 3 to 10 on real code. Scenarios 3 and 4 have nothing to find in these repos, scenarios 6 to 9 do not depend on the code base, and scenarios 5 and 10 need facts that come from the tools rather than from the code.
+
+72 runs produced an answer. A further 4 Haiku runs hung when the client's own call to the model API failed repeatedly. They produced no result and are not counted; they were re-run.
+
+### Results
+
+Runs passed out of runs made, per cell. "Passed" means the scorer's key was satisfied.
+
+| Workspace, scenario | Haiku | Sonnet 5.5 | Opus 5.5 | What the tool returned |
+|---|---|---|---|---|
+| Kubernetes, 1 | 3 of 3 | 3 of 3 | 1 of 1 | Correct consumers |
+| NATS, 1 | 3 of 3 | 3 of 3 | 1 of 1 | Correct consumers |
+| Anthropic SDK, 2 | 0 of 3 | 0 of 3 | 0 of 3 | No consumers found |
+| Stripe, 2 | 0 of 3 | 0 of 3 | 0 of 1 | No consumers found |
+| OpenAI, 2 | 0 of 3 | 0 of 3 | 0 of 1 | No consumers found |
+| Temporal, 2 | 0 of 3 | 0 of 3 | 0 of 1 | No consumers found |
+| Kubernetes, 2 | 0 of 3 | 2 of 3 (see below) | 0 of 1 | A response of about 203,000 characters, too large for the client |
+| Prometheus, 2 | 0 of 3 | 0 of 3 | 0 of 1 | A response of about 62,000 characters, too large for the client |
+| NATS, 2 | 0 of 3 | 0 of 3 | 0 of 1 | Correct consumers, no Go version numbers |
+| Charm, 2 | 0 of 3 | 0 of 3 | 0 of 1 | Correct consumers, no Go version numbers |
+
+Every cell ran. Opus cells with 1 repeat are partial against the 3-repeat plan.
+
+**Read the zeros as findings about the tools, not about the models.** Every failure reproduced on all three models, and in every one the tool's output was missing, unusable, or incomplete. We found no cell where the tool's output was correct and complete and a model answered wrongly.
+
+- **Nothing found (Anthropic SDK, Stripe, OpenAI, Temporal).** Desnarl currently finds a repo only if it has a manifest at its root, and it could not resolve a package whose entry file is built output that a source checkout does not contain. Every TypeScript workspace returned an empty list, though the consumers exist: 3, 15, 13 and 7 repos by our count. This is a gap in what Desnarl parses.
+- **Response too large (Kubernetes and Prometheus, scenario 2).** For a widely imported package, `crossrepo_consumers` returned one entry per consuming file, about 203,000 and 62,000 characters in a single line. That exceeds the client's output limit, so Claude Code saved it to a file that the session could not read. This is a limitation of the tool, not a failure of the model. It also explains why we have never seen a truncated result: nothing caps the response size. This page describes the runs of 2026-10-08, and the limitation had not been fixed at the time of writing.
+- **No Go version data (NATS, Charm, and the version question on Kubernetes and Prometheus).** The tool did not compute version skew for Go consumers, and its description did not say so. The scorer's key expects each consumer's version, so these cells fail. The models said they could not confirm the versions because the tool did not return them. That statement is correct.
+
+Scenario 1 on Kubernetes and NATS is the one clean comparison of model and tool, and every run there passed.
+
+**A note on the two Sonnet passes on Kubernetes, scenario 2.** Both retried with the compact `mermaid` output format and listed the five consumers. Both also said they could not answer the version question. They are half answers that the scorer's key counts as passes, so they overstate what Sonnet did.
+
+### What the models did with an empty or unusable result
+
+We classified the first sentence of each answer in the 30 runs on the four TypeScript workspaces, where the tool returned no consumers (a pattern match first, then samples read by hand). These are counts from small samples.
+
+- In 7 of 30 runs the headline stated that nothing depends on the package. All 7 mentioned a gap or caveat later in the answer.
+- In 23 of 30 the headline hedged or declined.
+- In 4 of 30 the model concluded that there was only one repo in the workspace, because the response reported a total of 1 repo and did not mention the repos it had skipped.
+- Across the 74 runs we could map to a workspace, none claimed the versions were compatible. The 7 pattern matches were all negations, such as "I can't say whether they are compatible".
+- We found no invented consumer in the answers we read in full: the whole Anthropic SDK cell and samples from Kubernetes and NATS. We did not check every run mechanically.
+
+### Tool-only pass
+
+Before the model runs, we called the tools directly on the same workspaces, with no model, and compared the results with the same ground truth. The tool returned the right consumers on NATS and Prometheus (the four packages asked about each) and Charm (two packages), and on Kubernetes when asked about a package path. It returned none on the four TypeScript workspaces, and none when asked about the Kubernetes module root rather than a package path. It reported no version skew on Kubernetes, Prometheus or NATS, though ground truth had it on all three. It also labelled Go test files as source files.
+
 ## What we have not run
 
-- **Real code.** Every result above is from the synthetic workspace. We have not run models against real open-source workspaces, where long consumer lists, truncated results and mixed test and source files are likelier to cause trouble. We will add those results here only for cells that actually ran.
+- **Real code, beyond what is shown above.** The real-code runs covered 2 of the 10 scenarios. Scenarios 3 to 10 were not run on real code.
 - **Other clients.** Codex CLI, Antigravity CLI and Grok Build are listed under [Client compatibility](./compatibility.md) as tested for connecting and calling tools. We have not run this model-behavior test with any of them.
 - **Other models.** We have not run it with any model not in the table, including the models those other clients use.
 - **Other platforms.** All runs were on macOS.

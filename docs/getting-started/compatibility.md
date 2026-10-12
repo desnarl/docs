@@ -24,13 +24,13 @@ The clients above were run on macOS. Separately, we installed the packed npm tar
 
 | Platform | Status | Evidence |
 |---|---|---|
-| macOS | Tested | Used for all client runs above and for local development. |
+| macOS | Tested | Used for all client runs above and for local development. [Clean-install run on `macos-latest`, 2026-10-12](https://github.com/desnarl/engine/actions/runs/38270510711/job/114883316684), with the tarball install and a real MCP call over stdio. |
 | Linux (native, x64) | Tested | [Clean-install run on Ubuntu, 2026-10-07](https://github.com/desnarl/engine/actions/runs/37627145497/job/112811715698), with the tarball install and a real MCP call over stdio. |
 | Docker (`node:24-trixie-slim`, x64) | Tested | [Clean-container run, 2026-10-07](https://github.com/desnarl/engine/actions/runs/37627145497/job/112811715736). The image has no compiler, so the native modules load from their prebuilt binaries. |
 | Windows | Not tested | Use Docker or WSL. |
 | Linux arm64 | Tested with build tools | [Native clean-install run](https://github.com/desnarl/engine/actions/runs/37793395435/job/113366413736) and [Docker run on `node:24-trixie`](https://github.com/desnarl/engine/actions/runs/37793395435/job/113366413627), 2026-10-08. A compiler-less install does not work: see below. |
 
-The two run links are in a private repository, so you may not be able to open them. They were green on that date.
+The run links are in a private repository, so you may not be able to open them. They were green on that date.
 
 **Linux arm64 needs a build toolchain.** The published `tree-sitter-typescript` 0.23.2 ships a `linux-arm64` prebuilt binary that is really an x86-64 build, so on arm64 it cannot be loaded and npm must compile it. Install Python, make and a C++ compiler first (the full `node:24-trixie` image has them; `node:24-trixie-slim` does not). This is an upstream packaging bug, [tree-sitter-typescript #324](https://github.com/tree-sitter/tree-sitter-typescript/issues/324), fixed on their side but not yet in a published release.
 

@@ -1,0 +1,56 @@
+name: No AI attribution
+
+# Split from ci.yml so a PR title/body edit re-runs only this check. The job
+# name is unchanged: the branch ruleset requires the context "no-ai-attribution".
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  push:
+    branches: [main]
+
+# A newer run of this workflow re-checks the whole commit range and the latest
+# title/body, so superseding an in-flight PR run loses nothing. Never cancel a
+# run on main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions: {}
+
+jobs:
+  # Mechanized backstop for the "no AI attribution in commits or PRs" rule.
+  # Runs on push to main too, because GitHub builds the squash-merge message
+  # server-side and can resurrect a trailer already removed from the branch.
+  no-ai-attribution:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check commits for AI attribution
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              RANGE="${{ github.sha }}~1..${{ github.sha }}"
+            else
+              RANGE="${BEFORE}..${{ github.sha }}"
+            fi
+          fi
+          bash scripts/check-no-ai-attribution.sh "$RANGE"
+
+      # The PR title and body are attacker-controlled text: they reach the
+      # script only through env:, never interpolated into the run: script.
+      # Pull-request events only; a push to main has no PR title or body.
+      - name: Check PR title and body for AI attribution
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: bash scripts/check-no-ai-attribution.sh --text

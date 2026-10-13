@@ -2,19 +2,19 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, synchronize, reopened]
   push:
     branches: [main]
 
-# Cancel superseded PR runs; never cancel a run on main. PR title/body edits
-# get their own group so an edit can neither cancel nor displace a code run.
+# Cancel superseded PR runs; never cancel a run on main. The PR title/body
+# attribution check lives in its own workflow (no-ai-attribution.yml), so a
+# title edit never triggers these jobs.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.action == 'edited' && 'edited' || 'code' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
-    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,7 +31,6 @@ jobs:
       - run: npm run build
 
   zizmor:
-    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,7 +51,6 @@ jobs:
   # finding; build a fake value in code, or list one exact fingerprint in
   # .gitleaksignore.
   gitleaks:
-    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -75,40 +73,3 @@ jobs:
 
       - name: gitleaks detect
         run: gitleaks detect --source . --config .gitleaks.toml --redact -v
-
-  # Mechanized backstop for the "no AI attribution in commits or PRs" rule.
-  # Runs on push to main too, because GitHub builds the squash-merge message
-  # server-side and can resurrect a trailer already removed from the branch.
-  no-ai-attribution:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - name: Check commits for AI attribution
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
-          else
-            BEFORE="${{ github.event.before }}"
-            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-              RANGE="${{ github.sha }}~1..${{ github.sha }}"
-            else
-              RANGE="${BEFORE}..${{ github.sha }}"
-            fi
-          fi
-          bash scripts/check-no-ai-attribution.sh "$RANGE"
-
-      # The PR title and body are attacker-controlled text: they reach the
-      # script only through env:, never interpolated into the run: script.
-      # Pull-request events only; a push to main has no PR title or body.
-      - name: Check PR title and body for AI attribution
-        if: github.event_name == 'pull_request'
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: bash scripts/check-no-ai-attribution.sh --text

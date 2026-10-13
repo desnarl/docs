@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Failing-test spec for checklist 2.19.1(b) — .github/workflows/ci.yml wiring of
+# Failing-test spec for checklist 2.19.1(b) — .github/workflows/no-ai-attribution.yml wiring of
 # the no-ai-attribution job's PR title/body check. A static text spec on the
 # workflow file, same pattern as ci-yml-no-write-network-wiring.test.sh.
 # Run directly: bash scripts/tests/ci-yml-no-ai-attribution-wiring.test.sh
@@ -7,7 +7,7 @@
 set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CI_YML="$(cd "${DIR}/../.." && pwd)/.github/workflows/ci.yml"
+CI_YML="$(cd "${DIR}/../.." && pwd)/.github/workflows/no-ai-attribution.yml"
 
 TESTS_RUN=0
 TESTS_FAILED=0
@@ -22,11 +22,11 @@ ON_PR=$(awk '/^on:/{o=1;next} o&&/^[^ #]/{o=0} o' "$CI_YML" \
 # The whole no-ai-attribution job (to the next 2-space job key).
 JOB=$(awk '/^  no-ai-attribution:/{j=1;print;next} j&&/^  [A-Za-z0-9_-]+:/{j=0} j' "$CI_YML")
 
-echo "ci.yml: pull_request trigger types"
+echo "no-ai-attribution.yml: pull_request trigger types"
 printf '%s\n' "$ON_PR" | grep -qE 'types: *\[ *opened, *edited, *synchronize, *reopened *\]'
 check $? "pull_request has types: [opened, edited, synchronize, reopened]"
 
-echo "ci.yml: no-ai-attribution job"
+echo "no-ai-attribution.yml: no-ai-attribution job"
 [ -n "$JOB" ]; check $? "no-ai-attribution job exists"
 printf '%s\n' "$JOB" | grep -qE 'check-no-ai-attribution\.sh --text'
 check $? "job runs check-no-ai-attribution.sh --text"
@@ -49,7 +49,7 @@ printf '%s\n' "$JOB" | grep -E 'github\.event\.pull_request\.(title|body)' | gre
 [ $? -ne 0 ] && printf '%s\n' "$JOB" | grep -qE 'github\.event\.pull_request\.title'
 check $? "every title/body expression sits on an env: mapping line (and at least one exists)"
 
-echo "ci.yml: text step guarded to pull_request events"
+echo "no-ai-attribution.yml: text step guarded to pull_request events"
 STEP=$(awk '
   /^      - / { if (cur ~ /--text/) { print cur; exit } cur=$0; next }
   { cur = cur "\n" $0 }

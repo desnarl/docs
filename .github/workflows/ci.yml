@@ -6,8 +6,14 @@ on:
   push:
     branches: [main]
 
+# Cancel superseded PR runs; never cancel a run on main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,6 +30,7 @@ jobs:
       - run: npm run build
 
   zizmor:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -44,6 +51,7 @@ jobs:
   # finding; build a fake value in code, or list one exact fingerprint in
   # .gitleaksignore.
   gitleaks:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -6,9 +6,10 @@ on:
   push:
     branches: [main]
 
-# Cancel superseded PR runs; never cancel a run on main.
+# Cancel superseded PR runs; never cancel a run on main. PR title/body edits
+# get their own group so an edit can neither cancel nor displace a code run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.action == 'edited' && 'edited' || 'code' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

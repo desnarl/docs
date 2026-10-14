@@ -58,7 +58,7 @@ This is a **same-symbol-name heuristic, not real data-flow tracing.** A renamed 
 
 *"Who depends on this shared package, and are they all on compatible versions?"*
 
-Given a shared package name, returns every sibling repo that consumes it, each consumer's own declared version range (from its own `package.json`), a `versionSkew` flag for whether those declared ranges are skewed across consumers, plus any repo referenced by a dependency that isn't checked out locally. Each consumer also carries a `resolvedVersion` (via a lockfile-first, registry-fallback lookup) and `resolutionMethod` (`"lockfile" | "registry" | "unresolved" | "disabled" | undefined`), plus a top-level `resolvedVersionSkew` flag computed only from those resolved values.
+Given a shared package name, returns every sibling repo that consumes it, each consumer's own declared version range (from its own `package.json`), a `versionSkew` flag for whether those declared ranges are skewed across consumers, plus any repo referenced by a dependency that isn't checked out locally. The response is bounded: `consumerRepos` is the complete list of consuming repos, and `consumers` is a sample of at most 50 consuming files (see below). Each consumer also carries a `resolvedVersion` (via a lockfile-first, registry-fallback lookup) and `resolutionMethod` (`"lockfile" | "registry" | "unresolved" | "disabled" | undefined`), plus a top-level `resolvedVersionSkew` flag computed only from those resolved values.
 
 ```json
 // Request
@@ -71,6 +71,12 @@ Given a shared package name, returns every sibling repo that consumes it, each c
     { "consumingRepo": "identity-kyb", "filePath": "/abs/path/identity-kyb/src/middleware/rate-limit.ts", "fileKind": "source", "declaredVersionRange": "^1.0.0", "resolvedVersion": "1.0.3", "resolutionMethod": "lockfile" },
     { "consumingRepo": "scope-policy", "filePath": "/abs/path/scope-policy/src/rate-limit.test.ts", "fileKind": "test", "declaredVersionRange": "^1.2.0", "resolvedVersion": "1.2.0", "resolutionMethod": "registry" }
   ],
+  "consumerRepos": [
+    { "consumingRepo": "identity-kyb", "fileCount": 1, "declaredVersionRange": "^1.0.0", "resolvedVersion": "1.0.3", "resolutionMethod": "lockfile" },
+    { "consumingRepo": "scope-policy", "fileCount": 1, "declaredVersionRange": "^1.2.0", "resolvedVersion": "1.2.0", "resolutionMethod": "registry" }
+  ],
+  "totalConsumerFiles": 2,
+  "omittedConsumerFiles": 0,
   "versionSkew": false,
   "resolvedVersionSkew": false,
   "missingSiblings": [],
@@ -79,9 +85,17 @@ Given a shared package name, returns every sibling repo that consumes it, each c
 }
 ```
 
+**A bounded response.** For a widely imported package, one entry per consuming file would be very large, so `consumers` is capped at a sample of **50** consuming files: one per repo first, in repo-name order, then more files from the repos that have them, plus one file for each repo named in a sampled consumer's `hopPath` that is not already in the sample. A repo can therefore appear in `consumers` more than once, once per sampled file. The sample is not widened by any input parameter. Read the counts from the other fields instead:
+
+- `consumerRepos` is the complete list of consuming repos, each with its true `fileCount` and its `declaredVersionRange`, `resolvedVersion` and `resolutionMethod`, so every consumer and its version is visible however many files were sampled. On a very large workspace this list can itself be long.
+- `totalConsumerFiles` is the true number of consuming files, and `omittedConsumerFiles` is how many of them are not in `consumers`.
+- `truncated` is `true` when `omittedConsumerFiles` is above zero, and also when a real further hop existed past the `maxHops` cap. Either way it is never a silent omission.
+
 **What counts as an internal package.** Desnarl treats a package as internal when its name matches the `name` in a sibling repo's own `package.json` (or a workspace member's `package.json` inside that repo). Any scope works, `@your-org/*` or `@acme/*` as much as an unscoped name; there is no scope list to configure. Importing the package's name is what makes a repo a consumer. A package that no checked-out sibling publishes, such as `zod` or `react`, is a third-party dependency, so `consumers` is empty for it. That is the expected answer, not an error.
 
 A consumer that imports the package without ever declaring it as a dependency still appears in `consumers`, just without `declaredVersionRange`/`resolvedVersion`/`resolutionMethod` keys — it's excluded only from the skew computations, never from the list.
+
+A consumer whose declared range is not a `^`, `~` or exact `x.y.z` version (`workspace:*`, `catalog:`, `>=`, x-ranges, tags) is still listed, but carries `rangeComparable: false` and is left out of `versionSkew`. `skewExcludedCount` says how many were left out, and appears only when it is above zero. When it does, `versionSkew: false` means no skew among the comparable ranges only.
 
 `versionSkew` and `resolvedVersionSkew` are distinct and can disagree: the former is declared-range-based, the latter is actual-resolved-value-based — declared ranges can look skewed while the resolved versions actually agree, or vice versa. Resolution is best-effort: a resolved version with a prerelease/build suffix, or a registry response that fails/is oversized, reports `resolutionMethod: "unresolved"` rather than a guessed value; `"disabled"` means registry resolution is turned off entirely (see [Self-hosted deployment → Registry-resolved version-skew checks](../self-hosted/deployment.md#registry-resolved-version-skew-checks)).
 
@@ -321,7 +335,7 @@ That is five packages and four hops end to end, so the default of 4 covers all o
 
 - **Local sibling-checkout resolution only** for repo content — every answer is computed from what's actually checked out on disk under the workspace root you configured. See [Self-hosted deployment](../self-hosted/deployment.md) for the network calls this instance makes for ingestion, registry resolution, and alerting.
 - **A missing sibling repo is never a silent false negative.** If a repo referenced by a `package.json` dependency isn't present on disk, it shows up explicitly in `missingSiblings`, rather than the tool quietly reporting "no consumers."
-- **Neither is a present-but-broken one.** A sibling repo that can't be read, or that has no usable entry point, shows up in `unresolvableRepos: {repo, reason}[]`, so check this field before reading a short or empty `consumers` list as confident. `missing_entry_file` means the package declares an entry point but that file isn't on disk (typically not built). `no_entry_declared` means the package has a name but declares no entry field, has no default entry file, and exports no concrete subpath to read, so it is reported instead of being dropped silently. Other reasons cover an unparseable `package.json` or a `go.mod` with no module directive.
+- **Neither is a present-but-broken one.** A sibling repo that can't be read, or that has no usable entry point, shows up in `unresolvableRepos: {repo, reason}[]`, so check this field before reading a short or empty `consumers` list as confident. `missing_entry_file` means the package declares an entry point but that file isn't on disk (typically not built). `no_entry_declared` means the package has a name but declares no entry field, has no default entry file, and exports no concrete subpath to read, so it is reported instead of being dropped silently. `no_root_manifest` means the repo is checked out but has no `package.json` or `go.mod` at its root, only in subfolders, so it was not searched. Other reasons cover an unparseable `package.json` or a `go.mod` with no module directive.
 - **Latency:** the first call after a repo's files change re-reads that repo, and on a large workspace this is slow: measured at roughly 27 to 36 seconds on a 13-repo workspace with an empty cache. Desnarl keeps each repo's parse result in its local database and checks it against the repo's file sizes and modification times on every call, so later calls that find nothing changed take well under a second (about 0.5 seconds in the same measurement, including from a freshly started server). A repo whose files changed is re-read on the next call. The check compares size and modification time, not file contents, so an edit that leaves both unchanged is not detected. Two concurrent calls fully serialize rather than overlap.
 - **A subpath import does not match the package root.** `import x from "@your-scope/pkg/sub"` is recorded under that full specifier, so it is not counted as a consumer of `@your-scope/pkg`.
 - **`missingSiblings` is a heuristic for scoped names.** A declared dependency is reported as a missing sibling only when its scope matches one used by a checked-out sibling's own package name (or one of Desnarl's two legacy default scopes). An unscoped dependency, or one whose scope no checked-out sibling shares, can't be told apart from a third-party package and is not reported.

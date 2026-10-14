@@ -41,7 +41,7 @@ PolyForm does not define "non-commercial". It says "Any noncommercial purpose is
 
 ## Can I use Desnarl's source to train AI models?
 
-Desnarl's licence does not grant a right to use its source to train AI models for commercial purposes. Non-commercial use is licensed on PolyForm's terms. Nothing on this page limits any rights the law gives you regardless of the licence.
+Using Desnarl's source to train commercial AI or machine-learning models, or to build datasets for that purpose, is not permitted under the licence, and the copyright holder reserves those rights. Non-commercial use is licensed on PolyForm's terms. Nothing on this page limits any rights the law gives you regardless of the licence.
 
 ## Does my repo content ever leave my infrastructure?
 

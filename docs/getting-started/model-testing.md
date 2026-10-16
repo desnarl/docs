@@ -119,6 +119,8 @@ Scenario 1 on Kubernetes and NATS is the one clean comparison of model and tool,
 
 ### What the models did with an empty or unusable result
 
+The responses those runs saw had no `declaredOnlyRepos` field. It was added afterwards. `declaredOnlyRepos` lists repos whose manifest declares this package but in which no file in the scanned languages imports it. This is not proof the dependency is unused: it can be used by a config file, a CLI script, another language (Python, shell) or as a peer or transitive dependency. A model reading it should say that a repo declares the package at a range but no import was found.
+
 We classified the first sentence of each answer in the 30 runs on the four TypeScript workspaces, where the tool returned no consumers (a pattern match first, then samples read by hand). These are counts from small samples.
 
 - In 7 of 30 runs the headline stated that nothing depends on the package. All 7 mentioned a gap or caveat later in the answer.

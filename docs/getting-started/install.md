@@ -66,6 +66,58 @@ The `env` block passes the license key from the section above. The workspace roo
 
 Not every client uses this `mcpServers` format, and clients differ in how they show tools. See [Client compatibility](./compatibility.md) for the clients we have tested.
 
+## Make your agent use it
+
+Connecting the server does not make an agent use it. Left alone, many agents answer a dependency question with `grep -r`. Three small steps fix that. The examples below use Claude Code's file formats; other clients have their own equivalents.
+
+### Tell the agent to prefer the tools
+
+Paste this into your agent's instructions file (`CLAUDE.md` for Claude Code), in the repo you work from:
+
+````markdown
+## Cross-repo dependency questions
+
+For "what depends on this", "what consumes this" and "what breaks if I change this" questions that span repos, use the crossrepograph MCP tools before `grep -r` or reading files across repos:
+
+- `crossrepo_impact` — `{ "symbol": "checkRateLimitWithPolicy", "sourceRepo": "internal-packages" }`: which repos and files use an exported symbol.
+- `crossrepo_consumers` — `{ "packageName": "@your-scope/rate-limit" }`: which repos and files import a package.
+- `crossrepo_schema_refs` — `{ "schemaOrTableName": "widgets" }`: which repos and files reference a table or schema.
+
+Fall back to grep only for what the tools do not read, such as languages other than TypeScript and Go.
+
+If your client defers MCP tools and they are not callable yet, load them first with
+ToolSearch `select:mcp__crossrepograph__crossrepo_impact,mcp__crossrepograph__crossrepo_consumers,mcp__crossrepograph__crossrepo_schema_refs`
+````
+
+Replace `crossrepograph` in the `select:` string with the key you used under `mcpServers`. The prefix is `mcp__<server-name>__`. See the [MCP tool reference](../mcp-tools/reference.md) for all eight tools, including `crossrepo_deployment_refs`, `crossrepo_cicd_refs` and `crossrepo_topic_refs`.
+
+### Allow the read-only tools
+
+By default the client asks before every tool call. The six query tools only read, so you can allow them. In Claude Code, add this to `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__crossrepograph__crossrepo_impact",
+      "mcp__crossrepograph__crossrepo_consumers",
+      "mcp__crossrepograph__crossrepo_schema_refs",
+      "mcp__crossrepograph__crossrepo_deployment_refs",
+      "mcp__crossrepograph__crossrepo_cicd_refs",
+      "mcp__crossrepograph__crossrepo_topic_refs"
+    ]
+  }
+}
+```
+
+The middle part of each name is the server name: whatever key you used in `mcpServers`. If you named it something other than `crossrepograph`, use that name here.
+
+`crossrepo_confirm` and `crossrepo_confirm_schema_ref` are deliberately left out. They record a decision rather than read one, so they should keep prompting.
+
+### Check that it is working
+
+Open the savings report ([The savings report](../self-hosted/savings-report.md)). If `savings-audit-report.md` shows **Applicable but unused**, your workspace has cross-repo links but the agent has made no calls: it is not reaching for the tools, so check that its instructions mention them.
+
 ## Restarting after an update
 
 After changing the license key, restart the host (see [above](#if-the-key-is-missing-or-malformed)). The same goes for any other change. If you already have a connected MCP session open when Desnarl's code changes (a version upgrade, a config change), restart that session's connection — not just the server process — to pick up any change in tool shape.

@@ -29,6 +29,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      - name: tdmrep.json guard (2.20.36)
+        run: bash scripts/tests/tdmrep.test.sh
 
   zizmor:
     runs-on: ubuntu-latest

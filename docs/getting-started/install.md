@@ -85,7 +85,7 @@ node /absolute/path/to/crossrepograph/dist/mcp/index.js init /absolute/path/to/y
 It shows a diff of what it would change and asks before writing. It edits two files:
 
 - `CLAUDE.md` in the workspace root. It adds the block from the next step between `<!-- crossrepograph:start -->` and `<!-- crossrepograph:end -->`.
-- A Claude Code settings file, where it adds the six allow rules from the step after that. By default this is `~/.claude/settings.json`, so the rules apply in every repo under your workspace. The diff header shows the exact path.
+- A Claude Code settings file, where it adds the six allow rules from the step after that. By default this is `~/.claude/settings.json`, so the rules apply in every repo under your workspace. The first line `init` prints and the diff header both show the exact path.
 
 Running it again changes nothing. Each file it modifies is first copied to `<file>.crossrepograph.bak`, which you may want in your `.gitignore`. It also writes `init-manifest.json` into the [state directory](../self-hosted/state-directory.md), recording what it added, so that `uninit` can remove exactly that.
 
@@ -124,7 +124,7 @@ Replace `crossrepograph` in the `select:` string with the key you used under `mc
 
 ### Allow the read-only tools
 
-By default the client asks before every tool call. The six query tools only read, so you can allow them. In Claude Code, add this to `.claude/settings.json`:
+By default the client asks before every tool call. The six query tools only read, so you can allow them. In Claude Code, add this to a settings file:
 
 ```json
 {
@@ -140,6 +140,8 @@ By default the client asks before every tool call. The six query tools only read
   }
 }
 ```
+
+Which file matters: `~/.claude/settings.json` applies in every repo of a workspace, while a `.claude/settings.json` in the workspace root applies only to sessions started in that exact folder, not in the repos beneath it.
 
 The middle part of each name is the server name: whatever key you used in `mcpServers`. If you named it something other than `crossrepograph`, use that name here.
 
@@ -177,7 +179,7 @@ Nothing above touches the [state directory](../self-hosted/state-directory.md); 
 node /absolute/path/to/crossrepograph/dist/mcp/index.js uninit /absolute/path/to/your-workspace
 ```
 
-It takes the same `--dry-run`, `--yes`, `--scope` and `--server-name` options as `init`, shows a diff, and asks first. Using `init-manifest.json`, it removes the block and only the rules that `init` added, so a rule you already had stays. It deletes a file only if `init` created it and it is now empty. If you edited the block, it asks before removing it, and with `--yes` it keeps the block. Without a manifest, it removes a block between the two marker lines and the six documented rules, and says so. Backups are written first, as for `init`.
+It takes the same `--dry-run`, `--yes`, `--scope` and `--server-name` options as `init`, shows a diff, and asks first. It reads the scope from `init-manifest.json`, so it edits the settings file `init` used; `--scope` only matters when there is no manifest. Using the manifest, it removes the block and only the rules that `init` added, so a rule you already had stays. It deletes a file only if `init` created it and it is now empty. If you edited the block, it asks before removing it, and with `--yes` it keeps the block. Without a manifest, it removes a block between the two marker lines and the six documented rules, and says so. Backups are written first, as for `init`.
 
 It does not edit your `mcpServers` entry, so remove that yourself as above, and it never deletes the state directory.
 

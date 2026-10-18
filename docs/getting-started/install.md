@@ -122,6 +122,28 @@ The middle part of each name is the server name: whatever key you used in `mcpSe
 
 Open the savings report ([The savings report](../self-hosted/savings-report.md)). If `savings-audit-report.md` shows **Applicable but unused**, your workspace has cross-repo links but the agent has made no calls: it is not reaching for the tools, so check that its instructions mention them.
 
+## Undo it
+
+You can reverse everything in "Make your agent use it" by hand. Do the first two to stop nudging the agent, the third to disconnect the server, and the fourth only if you want the cached data gone.
+
+### Remove the instructions
+
+Open the instructions file you pasted into (`CLAUDE.md` for Claude Code) and delete the whole block: from the `## Cross-repo dependency questions` heading down to and including the `ToolSearch` line at the end. If you also put the two comment lines `<!-- crossrepograph:start -->` and `<!-- crossrepograph:end -->` around it, delete those too.
+
+### Remove the allow rules
+
+In the settings file where you added them, delete the six rules listed under [Allow the read-only tools](#allow-the-read-only-tools), and nothing else. Leave any rules you already had. If you used a server name other than `crossrepograph`, the rule names carry that name. `crossrepo_confirm` and `crossrepo_confirm_schema_ref` were never in the list, so there is nothing to remove for them.
+
+### Remove the server
+
+This is a separate step, because it removes the connection itself, not just the nudge to use it. Delete the `crossrepograph` entry from `mcpServers` in your client's configuration, then restart the host. **That entry holds your license key in its `env` block, so copy the key somewhere safe first.** Deleting the entry deletes it from that file.
+
+### Leave or delete the state directory
+
+Nothing above touches the [state directory](../self-hosted/state-directory.md); it stays in place. Deleting it is safe, because `graph.db` is a cache that is rebuilt on the next query. It also deletes the savings report and the query log, including any confirmations you recorded, so keep a copy of those first if you want them.
+
+The `crossrepograph init` and `crossrepograph uninit` commands, once released, will do these steps for you. Until then the steps above are the whole process.
+
 ## Restarting after an update
 
 After changing the license key, restart the host (see [above](#if-the-key-is-missing-or-malformed)). The same goes for any other change. If you already have a connected MCP session open when Desnarl's code changes (a version upgrade, a config change), restart that session's connection — not just the server process — to pick up any change in tool shape.

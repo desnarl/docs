@@ -66,6 +66,10 @@ The `env` block passes the license key from the section above. The workspace roo
 
 Not every client uses this `mcpServers` format, and clients differ in how they show tools. See [Client compatibility](./compatibility.md) for the clients we have tested.
 
+## Where your data goes
+
+There is no indexing step. Desnarl reads your repos the first time you ask a question that needs them, then keeps what it parsed in a cache, one per workspace, in a separate **state directory**. It never writes into your repos, so there is nothing to add to a `.gitignore`. The server prints the state directory's location on stderr at startup. The first query on a large workspace is slow, because nothing is cached yet; later ones re-read only the repos whose files changed. See [What Desnarl keeps on disk](../self-hosted/state-directory.md) for the location on each system and how the cache is refreshed.
+
 ## Make your agent use it
 
 Connecting the server does not make an agent use it. Left alone, many agents answer a dependency question with `grep -r`. Three small steps fix that. The examples below use Claude Code's file formats; other clients have their own equivalents.
@@ -125,5 +129,6 @@ After changing the license key, restart the host (see [above](#if-the-key-is-mis
 ## Next
 
 - [Self-hosted deployment](../self-hosted/deployment.md) — ingestion auth, the network-queryable CI endpoint, storage, and staleness monitoring (built, not yet active).
+- [What Desnarl keeps on disk](../self-hosted/state-directory.md) — where the state directory is, what each file is, and how the cache is built and refreshed.
 - [MCP tool reference](../mcp-tools/reference.md) — what all eight tools take and actually return.
 - [Client compatibility](./compatibility.md) — the AI coding tools we have tested Desnarl with, and what we have not.

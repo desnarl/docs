@@ -40,7 +40,7 @@ Earlier builds kept this data in `.crossrepograph/` inside the checkout. Nothing
 
 | File | What it is |
 |---|---|
-| `graph.db` | The SQLite graph of your workspace: the repos, packages and links Desnarl has indexed. |
+| `graph.db` | A SQLite cache of what Desnarl parsed from each repo (its exports and imports). Links between repos are worked out from it at query time. Safe to delete; see [How the index is built and refreshed](#how-the-index-is-built-and-refreshed). |
 | `graph.db-wal`, `graph.db-shm` | SQLite's write-ahead log and its shared-memory index. They hold recent writes that are not yet in `graph.db`, and they come and go while the server runs. |
 | `query-log.jsonl` | One line per tool call: the tool, the symbol or query you asked about, the result count, a timestamp, and the consuming repos the call returned. It is the source for the ledger below. |
 | `query-ledger.md` | A readable summary regenerated from `query-log.jsonl`. |
@@ -51,6 +51,22 @@ Earlier builds kept this data in `.crossrepograph/` inside the checkout. Nothing
 | `repos/<repo-name>/` | Local clones of remote repos fetched by [ingestion](./deployment.md#ingestion-authentication). Present only if you use remote ingestion. |
 
 The report and ledger files are regenerated after every tool call, so editing them by hand achieves nothing.
+
+## How the index is built and refreshed
+
+There is no indexing command to run, and no background process. Desnarl builds its cache on demand, inside tool calls.
+
+- **Starting the server** opens `graph.db` and prepares it. It reads none of your repos.
+- **The first `crossrepo_impact` or `crossrepo_consumers` call** reads every repo it needs and stores the result in `graph.db`. On a large workspace this call is slow, because nothing is cached yet: [measured at roughly 27 to 36 seconds](../mcp-tools/reference.md#scope-and-limitations) on a 13-repo workspace. Later calls are much faster. The other query tools do not use the cache.
+- **Every call checks for changes.** The workspace's repo list is rebuilt on each call, so a repo you add is picked up by the next call. For each repo, Desnarl compares the size and modification time of its source files, manifests and built entry files (usually in `dist/`) with what it stored. A repo that differs is read again in full on that call, and one that matches is not. It does not compare file contents, so an edit that changes neither a file's size nor its modification time is not noticed.
+- **The refresh is per repo, not per file, and it happens inside the call.** The call waits while it runs. Nothing watches your files between calls.
+- **How to tell.** Each `crossrepo_impact` and `crossrepo_consumers` response carries `cacheHit` and `cache`, which show how many repos were served from the cache. See [Cache fields](../mcp-tools/reference.md#cache-fields). A response never says an answer is stale, because every call re-checks first.
+
+### Deleting `graph.db`
+
+`graph.db` holds nothing that cannot be rebuilt. If you delete it (with `graph.db-wal` and `graph.db-shm`), the server recreates it on the next start and every repo is read again on the next call, so the first call is slow again. Deleting it is also the fix if an older version refuses to start on a `graph.db` written by a newer one.
+
+It is the one file here you can lose safely. Your confirmations from `crossrepo_confirm` and `crossrepo_confirm_schema_ref` are not in `graph.db`: they are written to `query-log.jsonl`, with the rest of the query log, and `crossrepo_confirm` can only confirm a call that is still in that log. Deleting the whole state directory loses them.
 
 ## Keep it out of version control
 

@@ -50,7 +50,7 @@ An empty `consumers` list has three common causes. Check them in this order:
 
 If `consumers` is empty or shorter than you expected, look at `declaredOnlyRepos` too. `declaredOnlyRepos` lists repos whose manifest declares this package but in which no file in the scanned languages imports it. This is not proof the dependency is unused: it can be used by a config file, a CLI script, another language (Python, shell) or as a peer or transitive dependency. It says "declares X at range R but no import found", nothing more.
 
-An import of a subpath (`@your-scope/pkg/sub`) is not counted against `@your-scope/pkg`. For how a package is judged internal, see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo_consumerspackagename). `versionSkew` is only meaningful once `consumers` is non-empty.
+An import of a subpath (`@your-scope/pkg/sub`) is not counted against `@your-scope/pkg`. For how a package is judged internal, see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo-consumers). `versionSkew` is only meaningful once `consumers` is non-empty.
 
 ## Only `crossrepo_license_required` appears, or Desnarl's tools are missing
 

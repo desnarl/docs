@@ -177,7 +177,7 @@ Results are a starting point, not a verdict. The tool's own description in your 
 
 **Which languages and import forms are read.** Imports are read from `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` and `.cjs` files, and Go sources.
 
-- A namespace import (`import * as x from 'pkg'`) makes the file a consumer of every symbol of `pkg`. Member access such as `x.foo` is not followed, so the tag means "may use the symbol".
+- A namespace import (`import * as x from 'pkg'`) makes the file a consumer of the package, tagged `namespace-import`. Member access such as `x.foo` is not followed, so the tag means "may use the symbol".
 - A `require('pkg')` or dynamic `import('pkg')` call with a string-literal argument is read as an import. A destructured result counts as named imports; any other use counts as a namespace import (it may use any symbol).
 - An import of a package subpath (`pkg/sub`) also makes the file a consumer of `pkg` (it may use it), tagged `subpath-import`, when the exporter's `exports` map admits the subpath. No map, or an unreadable one, admits every subpath.
 - A `require()` or `import()` with a non-literal argument (a template literal, a variable or a concatenation) is not read, so a file that loads the package only that way is not listed.

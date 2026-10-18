@@ -8,7 +8,7 @@ Desnarl's public documentation site (Docusaurus, TypeScript classic template) �
 
 ## Where the decisions behind this repo come from
 
-The product decisions this repo documents were made in `fencedotdev/crossrepo-graph`'s `internal/checklists/checklist-phase-2.md` (see item 2.13.2 specifically for this repo's own build/content requirements) and its three Claude Design briefs (`internal/briefs/design-brief-*.md` in that repo). This repo is downstream of those decisions, not the place they're recorded — cross-reference that checklist for rationale, don't re-derive it here. See also `../CLAUDE.md` at the `desnarl/` workspace root, and `../web/CLAUDE.md` for the sibling marketing-site-plus-portal repo this site's copy needs to stay consistent with.
+The product decisions this repo documents were made in the `internal/` repo's `checklists/checklist-phase-2.md` (`desnarl/internal`) (see item 2.13.2 specifically for this repo's own build/content requirements) and its three Claude Design briefs (`briefs/design-brief-*.md` in that repo). This repo is downstream of those decisions, not the place they're recorded — cross-reference that checklist for rationale, don't re-derive it here. See also `../CLAUDE.md` at the `desnarl/` workspace root, and `../web/CLAUDE.md` for the sibling marketing-site-plus-portal repo this site's copy needs to stay consistent with.
 
 Load-bearing decisions carried into this repo's content — don't drift from these without checking the checklist first:
 
@@ -32,7 +32,7 @@ This repo previously deployed to GitHub Pages (`organizationName`/`projectName`/
 
 ## Content discipline
 
-- Content is adapted from `fencedotdev/crossrepo-graph`'s `internal/user-guide.md` and `internal/handover.md`, not hand-written from scratch and left to drift from the real product. If those source docs change materially, check whether this site's content needs updating too.
+- Content is adapted from the `internal/` repo's `handover.md`, not hand-written from scratch and left to drift from the real product. If those source docs change materially, check whether this site's content needs updating too.
 - No blog. No marketing copy beyond what already lives on `desnarl/web`'s own homepage — this site is documentation only (install, self-hosted deployment, MCP tool reference, licensing/pricing FAQ, troubleshooting). Before writing new public-facing product-name or tagline copy, check `desnarl/web`'s `src/i18n/messages.ts` for the already-established terminology rather than inventing a fresh phrasing.
 - Theme tokens (`src/css/custom.css`) are translated by hand from `~/Desktop/Desnarl/_ds/desnarl-design-system-*/tokens/*.css` and `~/Desktop/Desnarl/mantine-theme-mapping-brief.md` — copied in, not re-derived at build time. Re-sync by hand if the source design system changes; don't reuse Mantine/Next.js JSX values literally, they're a different stack's adapter of the same source tokens.
 - No third-party font CDN — fonts are self-hosted (`src/css/fonts/*.woff2`) per the design system's own stated rationale: a site whose pitch is "nothing leaves your infrastructure" must not ping Google on every page load.

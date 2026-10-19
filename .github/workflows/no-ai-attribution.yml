@@ -31,16 +31,22 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # github.event values reach the script only through env:, never
+      # interpolated into the run: script.
       - name: Check commits for AI attribution
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            RANGE="${PR_BASE_SHA}..${HEAD_SHA}"
           else
-            BEFORE="${{ github.event.before }}"
-            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-              RANGE="${{ github.sha }}~1..${{ github.sha }}"
+            if [ -z "$PUSH_BEFORE" ] || [ "$PUSH_BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              RANGE="${HEAD_SHA}~1..${HEAD_SHA}"
             else
-              RANGE="${BEFORE}..${{ github.sha }}"
+              RANGE="${PUSH_BEFORE}..${HEAD_SHA}"
             fi
           fi
           bash scripts/check-no-ai-attribution.sh "$RANGE"

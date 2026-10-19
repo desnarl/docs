@@ -1,0 +1,8 @@
+name: throwaway guard check
+on: workflow_dispatch
+permissions: {}
+jobs:
+  j:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ github.sha }}"

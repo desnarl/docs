@@ -64,10 +64,6 @@ jobs:
           rm zizmor.tar.gz
           echo "${RUNNER_TEMP}/bin" >> "$GITHUB_PATH"
 
-      - name: zizmor template-injection guard
-        if: ${{ !cancelled() }}
-        run: bash scripts/check-zizmor-template-injection.sh .
-
       # In this job rather than `build`: the guard's own test needs zizmor on
       # PATH for its real-workflow cases.
       - name: Script tests

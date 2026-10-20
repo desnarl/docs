@@ -44,13 +44,13 @@ The image is published to `ghcr.io/desnarl/crossrepograph` on each tagged releas
 
 An empty `consumers` list has three common causes. Check them in this order:
 
-1. **The package is third-party.** Desnarl only reports consumers of a package that a checked-out sibling repo publishes (its `package.json` `name`). Asking about `zod` or `react` returns an empty list, which is correct.
+1. **The package is third-party and nothing imports it.** For a package no checked-out sibling repo publishes (`zod`, `react`), Desnarl lists the files in sibling repos that import it, and sets `importBased: true`. An empty list then means no TypeScript or JavaScript file imports it by that name: side-effect-only imports, `export … from`, path aliases and Go are not counted (see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo-consumers)).
 2. **The publishing repo isn't checked out.** If the package is yours but its repo isn't a sibling folder under the workspace root, nothing resolves it. Look at `missingSiblings` for a scoped dependency that no checked-out sibling provides.
 3. **A repo couldn't be read.** A sibling whose `package.json` can't be parsed, whose declared entry point isn't built (`missing_entry_file`), or that has a name but declares no entry (`no_entry_declared`), appears in `unresolvableRepos`. So does a repo whose folder tree was too large to finish scanning for nested manifests (more than 500 directories, `scan_limit_reached`): it may hold modules that were not looked for. A repo whose manifests are only in subfolders is searched, not listed. Check that field before trusting a short or empty list.
 
-If `consumers` is empty or shorter than you expected, look at `declaredOnlyRepos` too. `declaredOnlyRepos` lists repos whose manifest declares this package but in which no file in the scanned languages imports it. This is not proof the dependency is unused: it can be used by a config file, a CLI script, another language (Python, shell) or as a peer or transitive dependency. It says "declares X at range R but no import found", nothing more.
+If `consumers` is empty or shorter than you expected, look at `declaredOnlyRepos` too. `declaredOnlyRepos` lists repos whose manifest declares this package but where no import of it was found. This is not proof the dependency is unused: it can be used by a config file, a CLI script, another language (Python, shell) or as a peer or transitive dependency. It says "declares X at range R but no import found", nothing more.
 
-An import of a subpath (`@your-scope/pkg/sub`) is not counted against `@your-scope/pkg`. For how a package is judged internal, see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo-consumers). `versionSkew` is only meaningful once `consumers` is non-empty.
+For a package a sibling publishes, an import of a subpath (`@your-scope/pkg/sub`) is counted only when that package's `exports` map allows it. For a third-party package, any subpath import counts, marked `importBased`. For how a package is judged internal, see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo-consumers). `versionSkew` is only meaningful once `consumers` is non-empty.
 
 ## Only `crossrepo_license_required` appears, or Desnarl's tools are missing
 

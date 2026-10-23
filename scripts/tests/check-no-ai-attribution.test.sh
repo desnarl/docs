@@ -23,7 +23,12 @@ fail() { echo "  FAIL: $1"; TESTS_FAILED=$((TESTS_FAILED + 1)); }
 # assert_status <expected> <actual> <desc>
 assert_status() {
   TESTS_RUN=$((TESTS_RUN + 1))
-  if [ "$2" = "$1" ]; then pass "$3"; else fail "$3 (expected exit $1, got $2)"; fi
+  if [ "$2" = "$1" ]; then pass "$3"; else
+    fail "$3 (expected exit $1, got $2)"
+    # Capture so a one-off failure (checklist 2.30.15: a SIGPIPE race on CI) is
+    # diagnosable from the log instead of being rerun away.
+    echo "    captured output of the last run: ${OUT//$'\n'/$'\n    '}"
+  fi
 }
 
 # assert_out_contains <output> <needle> <desc>
@@ -123,11 +128,11 @@ if [ ! -e "$CANARY" ]; then pass "nothing executed on the failing path either"; 
 echo "text mode: workflow-command injection via matched output"
 run_text "Clean title" $'::add-mask::secret\n::error::fake anthropic.com\n::set-output name=x::y anthropic.com'
 assert_status 1 "$STATUS" "body with leading '::' lines containing a hit fails"
-BAD_LINES=$(printf '%s\n' "$OUT" | grep -c -E '^::' || true)
+BAD_LINES=$(grep -c -E '^::' <<<"$OUT" || true)
 TESTS_RUN=$((TESTS_RUN + 1))
 if [ "${BAD_LINES:-0}" -le 1 ]; then pass "at most the script's own ::error:: line begins with '::'"; else fail "echoed body lines begin with '::' ($BAD_LINES lines)"; fi
 TESTS_RUN=$((TESTS_RUN + 1))
-if printf '%s\n' "$OUT" | grep -qE '^::(add-mask|set-output|warning|notice|debug|stop-commands)'; then fail "an injected workflow command starts a line"; else pass "no injected workflow command starts a line"; fi
+if grep -qE '^::(add-mask|set-output|warning|notice|debug|stop-commands)' <<<"$OUT"; then fail "an injected workflow command starts a line"; else pass "no injected workflow command starts a line"; fi
 
 echo "commit mode unchanged"
 REPO="$(mktemp -d)"
@@ -148,6 +153,38 @@ assert_out_contains "$OUT" "::error::Commit " "commit-mode error keeps the ::err
 assert_out_contains "$OUT" "contains AI-tool attribution" "commit-mode error keeps its message"
 OUT=$(cd "$REPO" && bash "$SCRIPT" 2>&1); STATUS=$?
 assert_status 1 "$STATUS" "no argument and no --text still errors with usage"
+
+echo "large input: grep -q closing the pipe early must never turn a hit into a pass"
+# grep -q exits at the first match; under pipefail a printf still writing a big
+# value gets SIGPIPE, the pipeline reads as nonzero and a hit looked like no hit.
+# GitHub caps a PR body at 65,536 chars; the hit is on line 1 so grep exits first.
+HIT="Co-Authored-By: Claude <noreply@anthropic.com>"
+FILLER=$(head -c 65000 /dev/zero | tr '\0' 'a')
+BIG="${HIT}"$'\n'"${FILLER}"
+LARGE_RUNS=100
+count_misses() {
+  local n=0 i
+  for ((i = 0; i < LARGE_RUNS; i++)); do "$1"; [ "$STATUS" = 1 ] || n=$((n + 1)); done
+  echo "$n"
+}
+run_big_body() { run_text "Clean title" "$BIG"; }
+run_big_title() { run_text "$BIG" "clean body"; }
+BODY_MISSES=$(count_misses run_big_body)
+assert_status 0 "$BODY_MISSES" "65k-char body with a first-line hit fails every time (misses in ${LARGE_RUNS} runs)"
+TITLE_MISSES=$(count_misses run_big_title)
+assert_status 0 "$TITLE_MISSES" "65k-char title with a first-line hit fails every time (misses in ${LARGE_RUNS} runs)"
+
+BIGREPO="$(mktemp -d)"
+git -C "$BIGREPO" init -q -b main
+git -C "$BIGREPO" config user.email t@example.com
+git -C "$BIGREPO" config user.name t
+git -C "$BIGREPO" config commit.gpgsign false
+git -C "$BIGREPO" commit -q --allow-empty -m "base"
+BIGBASE=$(git -C "$BIGREPO" rev-parse HEAD)
+git -C "$BIGREPO" commit -q --allow-empty -m "big commit" -m "$BIG"
+run_big_commit() { OUT=$(cd "$BIGREPO" && bash "$SCRIPT" "${BIGBASE}..HEAD" 2>&1); STATUS=$?; }
+COMMIT_MISSES=$(count_misses run_big_commit)
+assert_status 0 "$COMMIT_MISSES" "65k-char commit message with a first-line hit fails every time (misses in ${LARGE_RUNS} runs)"
 
 echo ""
 echo "$((TESTS_RUN - TESTS_FAILED))/${TESTS_RUN} passed"

@@ -27,11 +27,16 @@ TEXT_PATTERN="${PATTERN}|claude\.ai/code/session_"
 # Check one PR text field; $1 = field name, $2 = its content. Matched lines are
 # indented so an echoed line can never start with "::" and inject a workflow
 # command.
+#
+# grep reads from a here-string and its output is captured, never piped: with
+# `printf | grep -q` under pipefail, grep exiting at the first match could
+# SIGPIPE printf on a large value, and the nonzero pipeline read as "no hit".
 check_text_field() {
-  local field="$1" content="${2//$'\r'/}"
-  if printf '%s\n' "$content" | grep -qiE -- "$TEXT_PATTERN"; then
+  local field="$1" content="${2//$'\r'/}" matches
+  matches=$(grep -iE -- "$TEXT_PATTERN" <<<"$content" || true)
+  if [ -n "$matches" ]; then
     echo "::error::The PR ${field} contains AI-tool attribution, which is not allowed in this repo:"
-    printf '%s\n' "$content" | grep -iE -- "$TEXT_PATTERN" | sed 's/^/    /' || true
+    printf '%s\n' "$matches" | sed 's/^/    /'
     return 1
   fi
   return 0
@@ -55,9 +60,10 @@ FOUND=0
 while IFS= read -r sha; do
   [ -z "$sha" ] && continue
   msg=$(git log -1 --format=%B "$sha" 2>/dev/null || true)
-  if printf '%s' "$msg" | grep -qiE "$PATTERN"; then
+  matches=$(grep -iE "$PATTERN" <<<"$msg" || true)
+  if [ -n "$matches" ]; then
     echo "::error::Commit ${sha} contains AI-tool attribution, which is not allowed in this repo:"
-    printf '%s\n' "$msg" | grep -iE "$PATTERN" || true
+    printf '%s\n' "$matches"
     FOUND=1
   fi
 done < <(git log --format=%H "$RANGE" 2>/dev/null || true)

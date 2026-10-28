@@ -72,6 +72,8 @@ Results are a starting point, not a verdict. The tool's own description in your 
 
 **Truncation by hop cap.** `truncated: true` means a further hop past the `maxHops` cap would add consumer files that are not shown. `hopCapHiddenFiles` counts them. It is never a silent omission, and `truncated` is `false` when the cap hides nothing.
 
+**Truncation by `export *` barrels.** `truncated` is also `true` when `starExpansionOmittedSymbols` or `untracedStarBarrelFiles` is above zero. See [Incomplete answers through `export *` barrels](#star-barrels).
+
 **Which languages and import forms are read.** Imports are read from `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` and `.cjs` files, and Go sources.
 
 - A namespace import (`import * as x from 'pkg'`) makes the file a consumer of every symbol of `pkg`. Member access such as `x.foo` is not followed, so the tag means "may use the symbol".
@@ -129,7 +131,7 @@ Given a shared package name, returns every sibling repo that consumes it, each c
 
 - `consumerRepos` is the complete list of consuming repos, each with its true `fileCount` and its `declaredVersionRange`, `resolvedVersion` and `resolutionMethod`, so every consumer and its version is visible however many files were sampled. On a very large workspace this list can itself be long.
 - `totalConsumerFiles` is the true number of consuming files, and `omittedConsumerFiles` is how many of them are not in `consumers`.
-- `truncated` is `true` when `omittedConsumerFiles` is above zero, and also when a real further hop existed past the `maxHops` cap. Either way it is never a silent omission.
+- `truncated` is `true` when `omittedConsumerFiles` is above zero, and also when a real further hop existed past the `maxHops` cap. Either way it is never a silent omission. An `export *` barrel that could not be fully followed also sets it: see [Incomplete answers through `export *` barrels](#star-barrels).
 
 **What counts as an internal package.** Desnarl treats a package as internal when its name matches the `name` in a sibling repo's own `package.json` (or a workspace member's `package.json` inside that repo). Any scope works, `@your-org/*` or `@acme/*` as much as an unscoped name; there is no scope list to configure. Importing the package's name is what makes a repo a consumer. A package that no checked-out sibling publishes, such as `zod` or `react`, is a third-party dependency, and is answered from imports instead (see the next paragraph).
 
@@ -184,6 +186,8 @@ Results are a starting point, not a verdict. The tool's own description in your 
 **Cost of alias resolution.** Resolving a repo's re-export aliases this way costs a real `ts.Program` construction per `from`-clause-re-exporting or wrap-shaped package with a resolvable `tsconfig.json`. It was measured at roughly 180-500ms per such repo on a project's own fixture workspace. It is negligible for the common case of a repo with neither shape, which is skipped via a cheap pre-check. The wrap-shape check reuses that same Program construction rather than a second one, so the cost does not compound per shape. A repo with no resolvable tsconfig, or whose Program construction otherwise fails, silently falls back to the same-name heuristic alone for that repo. It never produces a missing consumer or a thrown error because of that.
 
 **Truncation by hop cap.** `truncated: true` means a further hop past the `maxHops` cap would add consumer files that are not shown. `hopCapHiddenFiles` counts them. It is never a silent omission, and `truncated` is `false` when the cap hides nothing.
+
+**Truncation by `export *` barrels.** `truncated` is also `true` when `starExpansionOmittedSymbols` or `untracedStarBarrelFiles` is above zero. See [Incomplete answers through `export *` barrels](#star-barrels).
 
 **Which languages and import forms are read.** Imports are read from `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` and `.cjs` files, and Go sources.
 
@@ -420,6 +424,37 @@ flowchart TD
 **This text is not rendered by the tool** — turning it into an actual picture is up to whatever you paste it into: GitHub/GitLab markdown (a fenced ` ```mermaid ` block renders inline), the [Mermaid Live Editor](https://mermaid.live), most VS Code Markdown-preview extensions, or Obsidian/Notion-style note tools with native Mermaid support.
 
 Each diagram is scoped to exactly one query's already-resolved result — never a whole-graph dump.
+
+## Incomplete answers through `export *` barrels {/* #star-barrels */}
+
+A package that re-exports another with a bare `export * from "pkg"` forwards every name, so its own consumers are consumers of the original too. `crossrepo_impact` and `crossrepo_consumers` follow that, within two limits, and say so in the response when either one applies. Both fields below are absent when they are zero, and each one also sets `truncated: true`.
+
+| Field | Meaning | Appears when |
+|---|---|---|
+| `starExpansionOmittedSymbols` | Names a star re-export did not expand | The package behind an `export *` has more than **500** exported symbols. The first 500, in alphabetical order, are expanded; this is the count past that. Every star over that package drops the same names, so the count is not summed across barrels. In `crossrepo_impact` it counts only the packages that export the queried symbol. |
+| `untracedStarBarrelFiles` | Listed barrel files whose `export *` could not be traced | A file in `consumers` has a bare `export * from "pkg"` but is not the entry file of a resolvable package in the workspace, so Desnarl cannot say what imports the barrel. Barrels that are not in the answer are not counted. |
+
+The names a star re-export forwards are matched on the first hop only, by exact package, so a same-named symbol in an unrelated package is never attributed to the barrel. A chain of star barrels is still followed to its importers; a barrel in the middle that cannot be traced sets `untracedStarBarrelFiles`. `export * as ns from "pkg"` is listed as a consumer, and traversal stops at that barrel.
+
+**What to do.** Treat `truncated: true` with either field as "not verified", never as "no further consumers". For `untracedStarBarrelFiles`, check what imports each listed barrel by hand, or make sure the barrel is a package's entry file inside the workspace. For `starExpansionOmittedSymbols`, a symbol that sorts past the first 500 may have consumers not shown; query the package that defines it directly.
+
+**Worked example.** `app` imports `X` from `barrel`, and `barrel`'s entry file is `export * from "lib"`:
+
+```json
+// Request
+{ "symbol": "X", "sourceRepo": "lib" }
+
+// Response (abridged): barrel is traced, so app is listed
+{ "consumers": [ { "consumingRepo": "barrel" }, { "consumingRepo": "app" } ], "truncated": false }
+```
+
+If `barrel`'s `export *` sits in a file that is not a package entry point, `barrel` is still listed but `app` cannot be reached:
+
+```json
+{ "consumers": [ { "consumingRepo": "barrel" } ], "truncated": true, "untracedStarBarrelFiles": 1 }
+```
+
+If `lib` exported 620 symbols, the barrel is traced for the first 500 and the response carries `"truncated": true, "starExpansionOmittedSymbols": 120`.
 
 ## Traversal depth {/* #depth */}
 

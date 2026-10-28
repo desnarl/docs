@@ -5,7 +5,7 @@ title: What Desnarl keeps on disk
 
 # What Desnarl keeps on disk
 
-Desnarl writes its own working files to one folder, the **state directory**. It never writes into the repos it reads. This page says where that folder is, what each file in it is, and what to keep out of version control and out of a support request.
+Desnarl writes its own working files to one folder, the **state directory**. The server never writes into the repos it reads. The only other files Desnarl ever writes are the two that the one-off `crossrepograph init` command edits, after showing you the diff (see [Install](../getting-started/install.md#set-it-up-with-init)); those and their `.crossrepograph.bak` backups are not in the state directory. This page says where that folder is, what each file in it is, and what to keep out of version control and out of a support request.
 
 ## Where the state directory is
 
@@ -48,6 +48,7 @@ Earlier builds kept this data in `.crossrepograph/` inside the checkout. Nothing
 | `savings-audit-snapshot.json` | The latest per-workspace count of links by kind and repos by language, written as a by-product of a call. The savings report reads it instead of walking your workspace again. |
 | `savings-audit-report.md` | The savings report. See [The savings report](./savings-report.md). |
 | `monitoring-state.json` | Staleness-alert bookkeeping. Staleness monitoring is [built but not yet active](./deployment.md#staleness-monitoring), so expect this file only in an instance where you have started it yourself. |
+| `init-manifest.json` | Written by `crossrepograph init`: what it added to `CLAUDE.md` and to the settings file, so that `uninit` can remove exactly that. Absent if you never ran `init`. |
 | `repos/<repo-name>/` | Local clones of remote repos fetched by [ingestion](./deployment.md#ingestion-authentication). Present only if you use remote ingestion. |
 
 The report and ledger files are regenerated after every tool call, so editing them by hand achieves nothing.

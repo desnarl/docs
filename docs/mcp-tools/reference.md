@@ -66,12 +66,12 @@ This is a **same-symbol-name heuristic, not real data-flow tracing.** A renamed 
   "symbol": "legacyHash",
   "sourceRepo": "shared-lib",
   "consumers": [
-    { "consumingRepo": "billing-api", "filePath": "src/index.ts", "lineNumber": 4, "resolutionMechanism": "heuristic", "fileKind": "source" }
+    { "consumingRepo": "billing-api", "filePath": "src/index.ts", "lineNumber": 1, "resolutionMechanism": "heuristic", "fileKind": "source" }
   ],
-  "importBased": true,
   "missingSiblings": [],
   "unresolvableRepos": [],
-  "truncated": false
+  "truncated": false,
+  "importBased": true
 }
 ```
 

@@ -66,12 +66,12 @@ This is a **same-symbol-name heuristic, not real data-flow tracing.** A renamed 
   "symbol": "legacyHash",
   "sourceRepo": "shared-lib",
   "consumers": [
-    { "consumingRepo": "billing-api", "filePath": "src/index.ts", "lineNumber": 4, "resolutionMechanism": "heuristic", "fileKind": "source" }
+    { "consumingRepo": "billing-api", "filePath": "src/index.ts", "lineNumber": 1, "resolutionMechanism": "heuristic", "fileKind": "source" }
   ],
-  "importBased": true,
   "missingSiblings": [],
   "unresolvableRepos": [],
-  "truncated": false
+  "truncated": false,
+  "importBased": true
 }
 ```
 
@@ -82,7 +82,7 @@ Here `billing-api/src/index.ts` still has `import { legacyHash } from "@acme/sha
 - **A package name two sibling repos both declare is not matched.** The import cannot be attributed to the source repo, so those imports are not listed. An empty list can therefore mean "ambiguous", not "no consumers".
 - **A deleted entry file is still reported.** If the source repo's entry file was deleted, `unresolvableRepos` still lists the repo with reason `missing_entry_file`, alongside the consumers found. Check it before trusting the list.
 - **Head checkout only.** Desnarl reads only the imports it has already parsed from each repo's current checkout. It does no merge-base reading and makes no network call. Comparing against a base ref is done by the GitHub Action, not by this tool.
-- Only TypeScript and JavaScript imports are read, with the same import forms and limits as for [`crossrepo_consumers`](#crossrepo-consumers) import-based answers: a side-effect-only import, an `export … from` and a path alias are not counted.
+- **Only TypeScript and JavaScript files are read; Go imports are not.** A named import counts under its original name, so `import { legacyHash as hash }` is listed. A subpath import (`@acme/shared-lib/sub`) naming the symbol is also listed. A bare `export { legacyHash } from "@acme/shared-lib"` is listed too, since it is a file that still names the symbol. A destructured `require` or `import()` naming the symbol is listed. A namespace import (`import * as x`) or a non-destructured `require` names no symbol, so it is not matched. A side-effect-only import (`import "pkg"`) is not listed either, and a path alias (`@/lib/x`) is never matched to a package.
 
 ### Full behaviour notes {/* #crossrepo-impact-notes */}
 
@@ -168,7 +168,7 @@ Given a shared package name, returns every sibling repo that consumes it, each c
 **Third-party packages: import-based answers.** When no checked-out sibling repo publishes the queried package, Desnarl lists the sibling-repo files whose imports name it, or a subpath of it (`react/jsx-runtime`), and sets `importBased: true` on the response. The field is absent when a sibling publishes the package, so no `importBased` means the answer came from the package's exports as described above. Each entry has the same shape as any other consumer (`consumingRepo`, `filePath`, `declaredVersionRange`, `fileKind`), with no `hopPath`, and `maxHops` does not apply. Limits:
 
 - TypeScript and JavaScript files only. Go imports of third-party modules are not read.
-- A side-effect-only import (`import "pkg"`), an `export … from "pkg"` and a path alias (`@/lib/x`) are not counted. `require("pkg")` and a dynamic `import("pkg")` with a string literal are.
+- A side-effect-only import (`import "pkg"`) and a path alias (`@/lib/x`) are not counted. An `export … from "pkg"`, `require("pkg")` and a dynamic `import("pkg")` with a string literal are.
 - Relative imports and Node built-ins (`fs`, `node:path`) are never consumers. A bare import of an npm package that shares a built-in's name (`buffer`, `events`) is lost; `buffer/` is counted.
 - Subpaths are matched by name only: there is no `exports` map to check them against, so a subpath is a "may use".
 - Resolved versions are not looked up for these answers. Desnarl makes no registry call here, so rows read `resolutionMethod: "not-attempted"` (or `"lockfile"` when the repo's lockfile pins the package), and `resolvedVersionSkew` is `null`, not `false`. `versionSkew` still compares declared ranges.

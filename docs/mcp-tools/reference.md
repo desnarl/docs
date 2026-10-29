@@ -168,7 +168,7 @@ Given a shared package name, returns every sibling repo that consumes it, each c
 **Third-party packages: import-based answers.** When no checked-out sibling repo publishes the queried package, Desnarl lists the sibling-repo files whose imports name it, or a subpath of it (`react/jsx-runtime`), and sets `importBased: true` on the response. The field is absent when a sibling publishes the package, so no `importBased` means the answer came from the package's exports as described above. Each entry has the same shape as any other consumer (`consumingRepo`, `filePath`, `declaredVersionRange`, `fileKind`), with no `hopPath`, and `maxHops` does not apply. Limits:
 
 - TypeScript and JavaScript files only. Go imports of third-party modules are not read.
-- A side-effect-only import (`import "pkg"`), an `export … from "pkg"` and a path alias (`@/lib/x`) are not counted. `require("pkg")` and a dynamic `import("pkg")` with a string literal are.
+- A side-effect-only import (`import "pkg"`) and a path alias (`@/lib/x`) are not counted. An `export … from "pkg"`, `require("pkg")` and a dynamic `import("pkg")` with a string literal are.
 - Relative imports and Node built-ins (`fs`, `node:path`) are never consumers. A bare import of an npm package that shares a built-in's name (`buffer`, `events`) is lost; `buffer/` is counted.
 - Subpaths are matched by name only: there is no `exports` map to check them against, so a subpath is a "may use".
 - Resolved versions are not looked up for these answers. Desnarl makes no registry call here, so rows read `resolutionMethod: "not-attempted"` (or `"lockfile"` when the repo's lockfile pins the package), and `resolvedVersionSkew` is `null`, not `false`. `versionSkew` still compares declared ranges.

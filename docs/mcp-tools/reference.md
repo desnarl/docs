@@ -54,6 +54,36 @@ Given a symbol and the sibling repo that exports it, returns every sibling-repo 
 
 This is a **same-symbol-name heuristic, not real data-flow tracing.** A renamed or wrapped re-export (e.g. `export { checkRateLimitWithPolicy as checkLimit }`) breaks the chain and the tool will miss that consumer entirely; conversely, an unrelated export that happens to share the exact same name in an intermediary repo will be wrongly followed as if it were a real re-export. `truncated: true` means a real further hop existed past the `maxHops` cap and was cut off — never a silent omission, same convention as `missingSiblings`/`unresolvableRepos`.
 
+**Removed or renamed exports: import-based answers.** Desnarl resolves a symbol from the export graph of each repo's current checkout. A symbol that is no longer exported there has no edge in that graph, which used to read as "no consumers". When the queried `(sourceRepo, symbol)` has no edge and the multi-hop walk is also empty, Desnarl instead lists the sibling-repo files that import that symbol by name from a package the source repo itself declares in its `package.json`, and sets `importBased: true` on the response. The field is absent otherwise, so no `importBased` means the answer came from the export graph as described above. Each such entry carries `resolutionMechanism: "heuristic"`, and has no `hopPath`, because no re-export chain was followed. `importBased` is not folded into `truncated`: the two are independent.
+
+```json
+// Request: `legacyHash` was removed from the entry file of `shared-lib`,
+// which declares the package `@acme/shared-lib`
+{ "symbol": "legacyHash", "sourceRepo": "shared-lib" }
+
+// Response
+{
+  "symbol": "legacyHash",
+  "sourceRepo": "shared-lib",
+  "consumers": [
+    { "consumingRepo": "billing-api", "filePath": "src/index.ts", "lineNumber": 4, "resolutionMechanism": "heuristic", "fileKind": "source" }
+  ],
+  "importBased": true,
+  "missingSiblings": [],
+  "unresolvableRepos": [],
+  "truncated": false
+}
+```
+
+Here `billing-api/src/index.ts` still has `import { legacyHash } from "@acme/shared-lib"`, although `shared-lib` no longer exports it. Read this as a list of files to review. Limits:
+
+- **A name match is a "review these" signal, not proof the file breaks.** Desnarl matched the imported name and the package name, and did not check that the import fails to compile or that the symbol is the one that was removed.
+- **Paths are repo-relative.** An import-based entry carries a path relative to its repo (`src/index.ts`), while an entry resolved from the export graph carries an absolute path.
+- **A package name two sibling repos both declare is not matched.** The import cannot be attributed to the source repo, so those imports are not listed. An empty list can therefore mean "ambiguous", not "no consumers".
+- **A deleted entry file is still reported.** If the source repo's entry file was deleted, `unresolvableRepos` still lists the repo with reason `missing_entry_file`, alongside the consumers found. Check it before trusting the list.
+- **Head checkout only.** Desnarl reads only the imports it has already parsed from each repo's current checkout. It does no merge-base reading and makes no network call. Comparing against a base ref is done by the GitHub Action, not by this tool.
+- Only TypeScript and JavaScript imports are read, with the same import forms and limits as for [`crossrepo_consumers`](#crossrepo-consumers) import-based answers: a side-effect-only import, an `export … from` and a path alias are not counted.
+
 ### Full behaviour notes {/* #crossrepo-impact-notes */}
 
 Results are a starting point, not a verdict. The tool's own description in your MCP client keeps only the short version of the points below; this section is the full detail.

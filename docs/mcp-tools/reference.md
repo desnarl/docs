@@ -54,6 +54,36 @@ Given a symbol and the sibling repo that exports it, returns every sibling-repo 
 
 This is a **same-symbol-name heuristic, not real data-flow tracing.** A renamed or wrapped re-export (e.g. `export { checkRateLimitWithPolicy as checkLimit }`) breaks the chain and the tool will miss that consumer entirely; conversely, an unrelated export that happens to share the exact same name in an intermediary repo will be wrongly followed as if it were a real re-export. `truncated: true` means a real further hop existed past the `maxHops` cap and was cut off — never a silent omission, same convention as `missingSiblings`/`unresolvableRepos`.
 
+**Removed or renamed exports: import-based answers.** Desnarl resolves a symbol from the export graph of each repo's current checkout. A symbol that is no longer exported there has no edge in that graph, which used to read as "no consumers". When the queried `(sourceRepo, symbol)` has no edge and the multi-hop walk is also empty, Desnarl instead lists the sibling-repo files that import that symbol by name from a package the source repo itself declares in its `package.json`, and sets `importBased: true` on the response. The field is absent otherwise, so no `importBased` means the answer came from the export graph as described above. Each such entry carries `resolutionMechanism: "heuristic"`, and has no `hopPath`, because no re-export chain was followed. `importBased` is not folded into `truncated`: the two are independent.
+
+```json
+// Request: `legacyHash` was removed from the entry file of `shared-lib`,
+// which declares the package `@acme/shared-lib`
+{ "symbol": "legacyHash", "sourceRepo": "shared-lib" }
+
+// Response
+{
+  "symbol": "legacyHash",
+  "sourceRepo": "shared-lib",
+  "consumers": [
+    { "consumingRepo": "billing-api", "filePath": "src/index.ts", "lineNumber": 1, "resolutionMechanism": "heuristic", "fileKind": "source" }
+  ],
+  "missingSiblings": [],
+  "unresolvableRepos": [],
+  "truncated": false,
+  "importBased": true
+}
+```
+
+Here `billing-api/src/index.ts` still has `import { legacyHash } from "@acme/shared-lib"`, although `shared-lib` no longer exports it. Read this as a list of files to review. Limits:
+
+- **A name match is a "review these" signal, not proof the file breaks.** Desnarl matched the imported name and the package name, and did not check that the import fails to compile or that the symbol is the one that was removed.
+- **Paths are repo-relative.** An import-based entry carries a path relative to its repo (`src/index.ts`), while an entry resolved from the export graph carries an absolute path.
+- **A package name two sibling repos both declare is not matched.** The import cannot be attributed to the source repo, so those imports are not listed. An empty list can therefore mean "ambiguous", not "no consumers".
+- **A deleted entry file is still reported.** If the source repo's entry file was deleted, `unresolvableRepos` still lists the repo with reason `missing_entry_file`, alongside the consumers found. Check it before trusting the list.
+- **Head checkout only.** Desnarl reads only the imports it has already parsed from each repo's current checkout. It does no merge-base reading and makes no network call. Comparing against a base ref is done by the GitHub Action, not by this tool.
+- **Only TypeScript and JavaScript files are read; Go imports are not.** A named import counts under its original name, so `import { legacyHash as hash }` is listed. A subpath import (`@acme/shared-lib/sub`) naming the symbol is also listed. A bare `export { legacyHash } from "@acme/shared-lib"` is listed too, since it is a file that still names the symbol. A destructured `require` or `import()` naming the symbol is listed. A namespace import (`import * as x`) or a non-destructured `require` names no symbol, so it is not matched. A side-effect-only import (`import "pkg"`) is not listed either, and a path alias (`@/lib/x`) is never matched to a package.
+
 ### Full behaviour notes {/* #crossrepo-impact-notes */}
 
 Results are a starting point, not a verdict. The tool's own description in your MCP client keeps only the short version of the points below; this section is the full detail.
@@ -71,6 +101,8 @@ Results are a starting point, not a verdict. The tool's own description in your 
 **Cost of alias resolution.** Resolving a repo's re-export aliases this way costs a real `ts.Program` construction per `from`-clause-re-exporting or wrap-shaped package with a resolvable `tsconfig.json`. It was measured at roughly 180-500ms per such repo on a project's own fixture workspace. It is negligible for the common case of a repo with neither shape, which is skipped via a cheap pre-check. The wrap-shape check reuses that same Program construction rather than a second one, so the cost does not compound per shape. A repo with no resolvable tsconfig, or whose Program construction otherwise fails, silently falls back to the same-name heuristic alone for that repo. It never produces a missing consumer or a thrown error because of that.
 
 **Truncation by hop cap.** `truncated: true` means a further hop past the `maxHops` cap would add consumer files that are not shown. `hopCapHiddenFiles` counts them. It is never a silent omission, and `truncated` is `false` when the cap hides nothing.
+
+**Truncation by `export *` barrels.** `truncated` is also `true` when `starExpansionOmittedSymbols` or `untracedStarBarrelFiles` is above zero. See [Incomplete answers through `export *` barrels](#star-barrels).
 
 **Which languages and import forms are read.** Imports are read from `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` and `.cjs` files, and Go sources.
 
@@ -129,9 +161,19 @@ Given a shared package name, returns every sibling repo that consumes it, each c
 
 - `consumerRepos` is the complete list of consuming repos, each with its true `fileCount` and its `declaredVersionRange`, `resolvedVersion` and `resolutionMethod`, so every consumer and its version is visible however many files were sampled. On a very large workspace this list can itself be long.
 - `totalConsumerFiles` is the true number of consuming files, and `omittedConsumerFiles` is how many of them are not in `consumers`.
-- `truncated` is `true` when `omittedConsumerFiles` is above zero, and also when a real further hop existed past the `maxHops` cap. Either way it is never a silent omission.
+- `truncated` is `true` when `omittedConsumerFiles` is above zero, and also when a real further hop existed past the `maxHops` cap. Either way it is never a silent omission. An `export *` barrel that could not be fully followed also sets it: see [Incomplete answers through `export *` barrels](#star-barrels).
 
-**What counts as an internal package.** Desnarl treats a package as internal when its name matches the `name` in a sibling repo's own `package.json` (or a workspace member's `package.json` inside that repo). Any scope works, `@your-org/*` or `@acme/*` as much as an unscoped name; there is no scope list to configure. Importing the package's name is what makes a repo a consumer. A package that no checked-out sibling publishes, such as `zod` or `react`, is a third-party dependency, so `consumers` is empty for it. That is the expected answer, not an error.
+**What counts as an internal package.** Desnarl treats a package as internal when its name matches the `name` in a sibling repo's own `package.json` (or a workspace member's `package.json` inside that repo). Any scope works, `@your-org/*` or `@acme/*` as much as an unscoped name; there is no scope list to configure. Importing the package's name is what makes a repo a consumer. A package that no checked-out sibling publishes, such as `zod` or `react`, is a third-party dependency, and is answered from imports instead (see the next paragraph).
+
+**Third-party packages: import-based answers.** When no checked-out sibling repo publishes the queried package, Desnarl lists the sibling-repo files whose imports name it, or a subpath of it (`react/jsx-runtime`), and sets `importBased: true` on the response. The field is absent when a sibling publishes the package, so no `importBased` means the answer came from the package's exports as described above. Each entry has the same shape as any other consumer (`consumingRepo`, `filePath`, `declaredVersionRange`, `fileKind`), with no `hopPath`, and `maxHops` does not apply. Limits:
+
+- TypeScript and JavaScript files only. Go imports of third-party modules are not read.
+- A side-effect-only import (`import "pkg"`) and a path alias (`@/lib/x`) are not counted. An `export … from "pkg"`, `require("pkg")` and a dynamic `import("pkg")` with a string literal are.
+- Relative imports and Node built-ins (`fs`, `node:path`) are never consumers. A bare import of an npm package that shares a built-in's name (`buffer`, `events`) is lost; `buffer/` is counted.
+- Subpaths are matched by name only: there is no `exports` map to check them against, so a subpath is a "may use".
+- Resolved versions are not looked up for these answers. Desnarl makes no registry call here, so rows read `resolutionMethod: "not-attempted"` (or `"lockfile"` when the repo's lockfile pins the package), and `resolvedVersionSkew` is `null`, not `false`. `versionSkew` still compares declared ranges.
+
+A repo that declares the package and imports it is a consumer, not in `declaredOnlyRepos`. The paths in the answer can be of any file whose import names the string you asked about, including an internal package name.
 
 A consumer that imports the package without ever declaring it as a dependency still appears in `consumers`, just without `declaredVersionRange`/`resolvedVersion`/`resolutionMethod` keys — it's excluded only from the skew computations, never from the list.
 
@@ -141,7 +183,7 @@ A consumer whose declared range is not a `^`, `~` or exact `x.y.z` version (`wor
 
 `versionSkew` and `resolvedVersionSkew` are distinct and can disagree: the former is declared-range-based, the latter is actual-resolved-value-based — declared ranges can look skewed while the resolved versions actually agree, or vice versa. Resolution is best-effort: a resolved version with a prerelease/build suffix, or a registry response that fails/is oversized, reports `resolutionMethod: "unresolved"` rather than a guessed value; `"disabled"` means registry resolution is turned off entirely (see [Self-hosted deployment → Registry-resolved version-skew checks](../self-hosted/deployment.md#registry-resolved-version-skew-checks)).
 
-**Repos that declare the package but do not import it.** `declaredOnlyRepos` lists repos whose manifest declares this package but in which no file in the scanned languages imports it. This is not proof the dependency is unused: it can be used by a config file, a CLI script, another language (Python, shell) or as a peer or transitive dependency. Each entry is one manifest: `consumingRepo`, `manifestPath` (relative to the repo), `declaredVersionRange` and `dependencyKind` (`dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`, or `go.mod` for a direct `require`; `// indirect` lines are not listed). A repo that has any consumer file is never listed here. In the repo that publishes the package, its own manifest and any manifest that points back into that repo (`file:`, `link:` or `workspace:`, or a Go `replace` to a local path) are skipped; every other manifest there is listed. The field is absent when there are none. It does not change `consumers`, `consumerRepos`, `totalConsumerFiles`, `versionSkew` or the diagram, and its ranges are listed, not compared. An agent summarising it should say "declares X at range R but no import found".
+**Repos that declare the package but do not import it.** `declaredOnlyRepos` lists repos whose manifest declares this package but where no import of it was found. This is not proof the dependency is unused: it can be used by a config file, a CLI script, another language (Python, shell) or as a peer or transitive dependency. Each entry is one manifest: `consumingRepo`, `manifestPath` (relative to the repo), `declaredVersionRange` and `dependencyKind` (`dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`, or `go.mod` for a direct `require`; `// indirect` lines are not listed). A repo that has any consumer file is never listed here, and for a third-party package a repo that declares and imports it is a consumer. In the repo that publishes the package, its own manifest and any manifest that points back into that repo (`file:`, `link:` or `workspace:`, or a Go `replace` to a local path) are skipped; every other manifest there is listed. The field is absent when there are none. It does not change `consumers`, `consumerRepos`, `totalConsumerFiles`, `versionSkew` or the diagram, and its ranges are listed, not compared. An agent summarising it should say "declares X at range R but no import found".
 
 Like `crossrepo_impact`, this follows each exported symbol's re-export chain across repo boundaries (same `maxHops` cap, same same-symbol-name heuristic).
 
@@ -159,9 +201,9 @@ Results are a starting point, not a verdict. The tool's own description in your 
 
 **Response caps.** `consumers` is a bounded sample of 50 consuming files (one per repo first, in repo-name order), plus one file for each repo named in a sampled consumer's `hopPath` that is not already in it, so a consuming repo can appear more than once, once per sampled file, each entry carrying its own `filePath` and `fileKind`. `consumerRepos` is the complete list of consuming repos, each with its true `fileCount`, `declaredVersionRange`, `resolvedVersion` and `resolutionMethod`, so every consumer and its version is visible even when the sample is capped. On a very large workspace `consumerRepos` may itself be large. `totalConsumerFiles` is the true number of consuming files and `omittedConsumerFiles` is how many are not in the sample. `truncated: true` means either the sample cap omitted consuming files (see `omittedConsumerFiles`) or a further hop past the `maxHops` cap would add consumer files not shown (`hopCapHiddenFiles` counts them). It is never a silent omission, and it is `false` when the cap hides nothing. No input parameter widens the sample.
 
-**Top-level resolution method.** The response carries a top-level `resolutionMethod`: `"lockfile"`, `"registry"`, `"disabled"`, `"mixed"` when consumers resolved by different methods, or `null` when nothing resolved. `resolvedVersionSkew` is `null`, not `false`, when `resolutionMethod` is `"disabled"`, because resolved versions were not checked.
+**Top-level resolution method.** The response carries a top-level `resolutionMethod`: `"lockfile"`, `"registry"`, `"disabled"`, `"mixed"` when consumers resolved by different methods, or `null` when nothing resolved. For an `importBased` answer, rows that were not looked up read `"not-attempted"`, and the top-level value is `"lockfile"`, `"mixed"` or `"not-attempted"`. `resolvedVersionSkew` is `null`, not `false`, when `resolutionMethod` is `"disabled"` or the answer is `importBased`, because resolved versions were not checked.
 
-**Declared but not imported.** `declaredOnlyRepos` lists repos whose manifest declares this package but in which no file in the scanned languages imports it. This is not proof the dependency is unused: it can be used by a config file, a CLI script, another language (Python, shell) or as a peer or transitive dependency. The field does not affect `versionSkew`, `consumerRepos` or the other counts.
+**Declared but not imported.** `declaredOnlyRepos` lists repos whose manifest declares this package but where no import of it was found. This is not proof the dependency is unused: it can be used by a config file, a CLI script, another language (Python, shell) or as a peer or transitive dependency. The field does not affect `versionSkew`, `consumerRepos` or the other counts.
 
 **Freshness.** Results reflect each sibling repo's current on-disk working tree, including uncommitted changes. Each call re-validates a stat-based fingerprint (file size and mtime, at the filesystem's mtime granularity) of every parse input. An edit that leaves both size and mtime unchanged can therefore, in principle, be missed.
 
@@ -174,6 +216,8 @@ Results are a starting point, not a verdict. The tool's own description in your 
 **Cost of alias resolution.** Resolving a repo's re-export aliases this way costs a real `ts.Program` construction per `from`-clause-re-exporting or wrap-shaped package with a resolvable `tsconfig.json`. It was measured at roughly 180-500ms per such repo on a project's own fixture workspace. It is negligible for the common case of a repo with neither shape, which is skipped via a cheap pre-check. The wrap-shape check reuses that same Program construction rather than a second one, so the cost does not compound per shape. A repo with no resolvable tsconfig, or whose Program construction otherwise fails, silently falls back to the same-name heuristic alone for that repo. It never produces a missing consumer or a thrown error because of that.
 
 **Truncation by hop cap.** `truncated: true` means a further hop past the `maxHops` cap would add consumer files that are not shown. `hopCapHiddenFiles` counts them. It is never a silent omission, and `truncated` is `false` when the cap hides nothing.
+
+**Truncation by `export *` barrels.** `truncated` is also `true` when `starExpansionOmittedSymbols` or `untracedStarBarrelFiles` is above zero. See [Incomplete answers through `export *` barrels](#star-barrels).
 
 **Which languages and import forms are read.** Imports are read from `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` and `.cjs` files, and Go sources.
 
@@ -410,6 +454,37 @@ flowchart TD
 **This text is not rendered by the tool** — turning it into an actual picture is up to whatever you paste it into: GitHub/GitLab markdown (a fenced ` ```mermaid ` block renders inline), the [Mermaid Live Editor](https://mermaid.live), most VS Code Markdown-preview extensions, or Obsidian/Notion-style note tools with native Mermaid support.
 
 Each diagram is scoped to exactly one query's already-resolved result — never a whole-graph dump.
+
+## Incomplete answers through `export *` barrels {/* #star-barrels */}
+
+A package that re-exports another with a bare `export * from "pkg"` forwards every name, so its own consumers are consumers of the original too. `crossrepo_impact` and `crossrepo_consumers` follow that, within two limits, and say so in the response when either one applies. Both fields below are absent when they are zero, and each one also sets `truncated: true`.
+
+| Field | Meaning | Appears when |
+|---|---|---|
+| `starExpansionOmittedSymbols` | Names a star re-export did not expand | The package behind an `export *` has more than **500** exported symbols. The first 500, in alphabetical order, are expanded; this is the count past that. Every star over that package drops the same names, so the count is not summed across barrels. In `crossrepo_impact` it counts only the packages that export the queried symbol. |
+| `untracedStarBarrelFiles` | Listed barrel files whose `export *` could not be traced | A file in `consumers` has a bare `export * from "pkg"` but is not the entry file of a resolvable package in the workspace, so Desnarl cannot say what imports the barrel. Barrels that are not in the answer are not counted. |
+
+The names a star re-export forwards are matched on the first hop only, by exact package, so a same-named symbol in an unrelated package is never attributed to the barrel. A chain of star barrels is still followed to its importers; a barrel in the middle that cannot be traced sets `untracedStarBarrelFiles`. `export * as ns from "pkg"` is listed as a consumer, and traversal stops at that barrel.
+
+**What to do.** Treat `truncated: true` with either field as "not verified", never as "no further consumers". For `untracedStarBarrelFiles`, check what imports each listed barrel by hand, or make sure the barrel is a package's entry file inside the workspace. For `starExpansionOmittedSymbols`, a symbol that sorts past the first 500 may have consumers not shown; query the package that defines it directly.
+
+**Worked example.** `app` imports `X` from `barrel`, and `barrel`'s entry file is `export * from "lib"`:
+
+```json
+// Request
+{ "symbol": "X", "sourceRepo": "lib" }
+
+// Response (abridged): barrel is traced, so app is listed
+{ "consumers": [ { "consumingRepo": "barrel" }, { "consumingRepo": "app" } ], "truncated": false }
+```
+
+If `barrel`'s `export *` sits in a file that is not a package entry point, `barrel` is still listed but `app` cannot be reached:
+
+```json
+{ "consumers": [ { "consumingRepo": "barrel" } ], "truncated": true, "untracedStarBarrelFiles": 1 }
+```
+
+If `lib` exported 620 symbols, the barrel is traced for the first 500 and the response carries `"truncated": true, "starExpansionOmittedSymbols": 120`.
 
 ## Traversal depth {/* #depth */}
 

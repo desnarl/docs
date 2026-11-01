@@ -48,6 +48,32 @@ jobs:
           advanced-security: "false"
           annotations: "true"
 
+      # The action runs zizmor in Docker, which cannot emit the JSON the
+      # template-injection guard needs, so install the pinned binary as well.
+      - name: Install zizmor
+        if: ${{ !cancelled() }}
+        env:
+          ZIZMOR_VERSION: "1.30.1"
+          ZIZMOR_SHA256: "e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a"
+        run: |
+          curl -sL -o zizmor.tar.gz \
+            "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${ZIZMOR_SHA256}  zizmor.tar.gz" | sha256sum -c -
+          mkdir -p "${RUNNER_TEMP}/bin"
+          tar -xzf zizmor.tar.gz -C "${RUNNER_TEMP}/bin" zizmor
+          rm zizmor.tar.gz
+          echo "${RUNNER_TEMP}/bin" >> "$GITHUB_PATH"
+
+      - name: zizmor template-injection guard
+        if: ${{ !cancelled() }}
+        run: bash scripts/check-zizmor-template-injection.sh .
+
+      # In this job rather than `build`: the guard's own test needs zizmor on
+      # PATH for its real-workflow cases.
+      - name: Script tests
+        if: ${{ !cancelled() }}
+        run: bash scripts/tests/run-script-tests.sh
+
   # Secret scanning over the full history, so a token committed and later
   # deleted is still caught. Never add a broad allowlist rule for a new
   # finding; build a fake value in code, or list one exact fingerprint in

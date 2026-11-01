@@ -68,11 +68,38 @@ Not every client uses this `mcpServers` format, and clients differ in how they s
 
 ## Where your data goes
 
-There is no indexing step. Desnarl reads your repos the first time you ask a question that needs them, then keeps what it parsed in a cache, one per workspace, in a separate **state directory**. It never writes into your repos, so there is nothing to add to a `.gitignore`. The server prints the state directory's location on stderr at startup. The first query on a large workspace is slow, because nothing is cached yet; later ones re-read only the repos whose files changed. See [What Desnarl keeps on disk](../self-hosted/state-directory.md) for the location on each system and how the cache is refreshed.
+There is no indexing step. Desnarl reads your repos the first time you ask a question that needs them, then keeps what it parsed in a cache, one per workspace, in a separate **state directory**. The server never writes into your repos, so there is nothing to add to a `.gitignore`. (The one-off [`init` command](#set-it-up-with-init) is the only thing that edits files outside the state directory, and only the two it shows you first.) The server prints the state directory's location on stderr at startup. The first query on a large workspace is slow, because nothing is cached yet; later ones re-read only the repos whose files changed. See [What Desnarl keeps on disk](../self-hosted/state-directory.md) for the location on each system and how the cache is refreshed.
 
 ## Make your agent use it
 
 Connecting the server does not make an agent use it. Left alone, many agents answer a dependency question with `grep -r`. Three small steps fix that. The examples below use Claude Code's file formats; other clients have their own equivalents.
+
+### Set it up with `init`
+
+`crossrepograph init` does the next two steps for you, for Claude Code:
+
+```bash
+node /absolute/path/to/crossrepograph/dist/mcp/index.js init /absolute/path/to/your-workspace
+```
+
+It shows a diff of what it would change and asks before writing. It edits two files:
+
+- `CLAUDE.md` in the workspace root. It adds the block from the next step between `<!-- crossrepograph:start -->` and `<!-- crossrepograph:end -->`.
+- A Claude Code settings file, where it adds the six allow rules from the step after that. By default this is `~/.claude/settings.json`, so the rules apply in every repo under your workspace. The first line `init` prints and the diff header both show the exact path.
+
+Running it again changes nothing. Each file it modifies is first copied to `<file>.crossrepograph.bak`, which you may want in your `.gitignore`. It also writes `init-manifest.json` into the [state directory](../self-hosted/state-directory.md), recording what it added, so that `uninit` can remove exactly that.
+
+| Option | What it does |
+|---|---|
+| `--dry-run` | Show the diff and write nothing. |
+| `--yes` | Apply without asking. Required when there is no terminal: without it, `init` shows the changes and stops. |
+| `--scope local\|project\|user` | Which settings file gets the allow rules: `user` is `~/.claude/settings.json` (the default), `project` is `.claude/settings.json` in the workspace root, `local` is `.claude/settings.local.json` there. |
+| `--client claude-code` | The only client supported today. |
+| `--server-name <name>` | Use this name in the block and the rules, if you named the server something other than `crossrepograph`. |
+
+Claude Code reads a settings file in a project folder only for sessions started in that exact folder, not in the repos beneath it. That is why `user` is the default. If you choose `local` or `project` and the workspace root is not itself a git repository, `init` says so.
+
+It does not read your license key, and it does not edit your `mcpServers` entry: it prints the entry to paste. A settings file with comments or trailing commas is left alone and the rules are printed for you to add by hand. The steps below show what it writes, so you can do the same by hand for another client.
 
 ### Tell the agent to prefer the tools
 
@@ -97,7 +124,7 @@ Replace `crossrepograph` in the `select:` string with the key you used under `mc
 
 ### Allow the read-only tools
 
-By default the client asks before every tool call. The six query tools only read, so you can allow them. In Claude Code, add this to `.claude/settings.json`:
+By default the client asks before every tool call. The six query tools only read, so you can allow them. In Claude Code, add this to a settings file:
 
 ```json
 {
@@ -113,6 +140,8 @@ By default the client asks before every tool call. The six query tools only read
   }
 }
 ```
+
+Which file matters: `~/.claude/settings.json` applies in every repo of a workspace, while a `.claude/settings.json` in the workspace root applies only to sessions started in that exact folder, not in the repos beneath it.
 
 The middle part of each name is the server name: whatever key you used in `mcpServers`. If you named it something other than `crossrepograph`, use that name here.
 
@@ -142,7 +171,17 @@ This is a separate step, because it removes the connection itself, not just the 
 
 Nothing above touches the [state directory](../self-hosted/state-directory.md); it stays in place. Deleting it is safe, because `graph.db` is a cache that is rebuilt on the next query. It also deletes the savings report and the query log, including any confirmations you recorded, so keep a copy of those first if you want them.
 
-The `crossrepograph init` and `crossrepograph uninit` commands, once released, will do these steps for you. Until then the steps above are the whole process.
+### Or run `uninit`
+
+`crossrepograph uninit` reverses what `init` did:
+
+```bash
+node /absolute/path/to/crossrepograph/dist/mcp/index.js uninit /absolute/path/to/your-workspace
+```
+
+It takes the same `--dry-run`, `--yes`, `--scope` and `--server-name` options as `init`, shows a diff, and asks first. It reads the scope from `init-manifest.json`, so it edits the settings file `init` used; `--scope` only matters when there is no manifest. Using the manifest, it removes the block and only the rules that `init` added, so a rule you already had stays. It deletes a file only if `init` created it and it is now empty. If you edited the block, it asks before removing it, and with `--yes` it keeps the block. Without a manifest, it removes a block between the two marker lines and the six documented rules, and says so. Backups are written first, as for `init`.
+
+It does not edit your `mcpServers` entry, so remove that yourself as above, and it never deletes the state directory.
 
 ## Restarting after an update
 

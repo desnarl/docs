@@ -20,7 +20,7 @@ npm run build
 
 This produces `dist/mcp/index.js` — the stdio MCP server entry point.
 
-:::caution Distribution channel not finalized
+:::caution[Distribution channel not finalized]
 This section documents the source build (clone → `npm install` → `npm run build`), which is what's confirmed working today. A packaged distribution (npm package, container image, or GitHub release) is not yet decided — this page will be updated once it is. Don't build tooling against an assumed package name or image tag; none is official yet.
 :::
 

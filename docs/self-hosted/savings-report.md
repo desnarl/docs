@@ -7,7 +7,7 @@ title: The savings report
 
 Desnarl keeps a plain Markdown report of what it has done for each workspace it has served. It is a local file, regenerated after every tool call, so you can open it at any time without running anything.
 
-:::note Scope of this page
+:::note[Scope of this page]
 This page covers only the savings report. It does not describe the rest of the files Desnarl keeps on disk. The report's own file name, `savings-audit-report.md`, is the only name you need here.
 :::
 

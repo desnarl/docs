@@ -136,7 +136,7 @@ The check-in keeps one file in your [state directory](./state-directory.md), `ch
 - the time of the first attempt and of the last authenticated answer;
 - the last authenticated answer: its state, the `reason` or `daysRemaining` if it had one, and when it arrived.
 
-If the file is missing, unreadable or does not match the current key, the client treats it as no history and starts the silence clock again. If it cannot be written, the tool keeps working. Deleting it is safe.
+If the file is missing, unreadable or does not match the current key, the client treats it as no history and starts the silence clock again, and forgets any earlier answer until the next check-in. If it cannot be written, the tool keeps working. Deleting it does no harm, and it is not a way around a block that the portal has answered: the next check-in with a connection fetches that answer again.
 
 ## How notices appear
 

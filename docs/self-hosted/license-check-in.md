@@ -5,7 +5,7 @@ title: License check-in
 
 # License check-in
 
-:::caution Planned contract, not yet shipped
+:::caution[Planned contract, not yet shipped]
 This page describes the **planned v1 contract** for Desnarl's license check-in. The check-in is **not yet part of the released product**: no released instance makes this call today, and the details below (including the endpoint address and the exact bucket spellings) may still change before it ships. It is published so that a security reviewer can see exactly what the call will carry before it exists. The [deployment guide](./deployment.md) lists the check-in as "Not yet shipped" and will be updated when it is.
 :::
 
@@ -30,7 +30,7 @@ Content-Type: application/json
 }
 ```
 
-:::note Endpoint address not final
+:::note[Endpoint address not final]
 `https://<license-portal-host>/api/license/...` is a placeholder. The real host and path will be published here when the server side is finished.
 :::
 

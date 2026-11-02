@@ -9,7 +9,7 @@ Desnarl is designed so that repo content — source, migrations, queries — nev
 
 That claim is scoped narrowly to repo *content*, though, and it's worth being precise about the rest of what this instance does over the network:
 
-:::info What actually leaves your network
+:::info[What actually leaves your network]
 Desnarl makes network calls in four places, allowlisted by design and kept minimal:
 
 | Call | Destination | Status |
@@ -52,7 +52,7 @@ Repeated invalid-token attempts are rate-limited, locking out a caller for a con
 
 ## Staleness monitoring
 
-:::caution Built, not yet active
+:::caution[Built, not yet active]
 The monitoring code exists and is tested, but no released instance starts it. Configuring a Discord or Slack webhook today will not send anything. This section describes how alerting will work once it is switched on.
 :::
 
@@ -67,7 +67,7 @@ The monitoring code exists and is tested, but no released instance starts it. Co
 - Don't commit either to source control or paste it into a public issue/PR.
 - If a Discord webhook leaks, regenerate it from Discord's own UI. If a Slack webhook leaks, regenerate it from the Slack App's own Incoming Webhooks settings. Either way, update your instance's configuration — the old URL stops working the moment the webhook is deleted/deactivated.
 
-:::note This is not the support channel
+:::note[This is not the support channel]
 This webhook is an alert channel *you* configure, to a Discord or Slack workspace *you* control — it has nothing to do with getting help from Desnarl. See [Troubleshooting → Getting help](../troubleshooting.md#getting-help) for that.
 :::
 

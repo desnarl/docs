@@ -132,11 +132,11 @@ Both are environment variables, set in the same `env` block as your license key.
 
 The check-in keeps one file in your [state directory](./state-directory.md), `checkin-state.json`. It is versioned and holds:
 
-- a SHA-256 hash of your license key, not the key itself, so the file is ignored if you change key;
+- a SHA-256 hash of your license key, never the key itself;
 - the time of the first attempt and of the last authenticated answer;
 - the last authenticated answer: its state, the `reason` or `daysRemaining` if it had one, and when it arrived.
 
-If the file is missing, unreadable or does not match the current key, the client treats it as no history and starts the silence clock again, and forgets any earlier answer until the next check-in. If it cannot be written, the tool keeps working. Deleting it does no harm, and it is not a way around a block that the portal has answered: the next check-in with a connection fetches that answer again.
+It is safe to delete, and the next check-in recreates it. If it cannot be written, the tool keeps working. A block the portal has answered comes back at the next check-in.
 
 ## How notices appear
 

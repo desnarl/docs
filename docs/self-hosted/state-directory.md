@@ -47,7 +47,7 @@ Earlier builds kept this data in `.crossrepograph/` inside the checkout. Nothing
 | `savings-audit-log.jsonl` | One line per call, recording the figures behind the savings report. |
 | `savings-audit-snapshot.json` | The latest per-workspace count of links by kind and repos by language, written as a by-product of a call. The savings report reads it instead of walking your workspace again. |
 | `savings-audit-report.md` | The savings report. See [The savings report](./savings-report.md). |
-| `checkin-state.json` | A versioned record of the [license check-in](./license-check-in.md): when it first tried, when it last got an authenticated answer, and that answer (its state, and the reason or days remaining if it had one). It holds a hash of your license key, not the key. Safe to delete: the next check-in recreates it. It then forgets earlier answers and starts the 30-day silence clock again. Not written if the check-in is switched off. |
+| `checkin-state.json` | A versioned record of the [license check-in](./license-check-in.md): when it first tried, when it last got an authenticated answer, and that answer (its state, and the reason or days remaining if it had one). It holds a hash of your license key, not the key. Safe to delete: the next check-in recreates it. Not written if the check-in is switched off. |
 | `monitoring-state.json` | Staleness-alert bookkeeping. Staleness monitoring is [built but not yet active](./deployment.md#staleness-monitoring), so expect this file only in an instance where you have started it yourself. |
 | `repos/<repo-name>/` | Local clones of remote repos fetched by [ingestion](./deployment.md#ingestion-authentication). Present only if you use remote ingestion. |
 

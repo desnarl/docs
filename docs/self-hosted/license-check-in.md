@@ -5,10 +5,6 @@ title: License check-in
 
 # License check-in
 
-:::caution[Planned contract, not yet shipped]
-This page describes the **planned v1 contract** for Desnarl's license check-in. The check-in is **not yet part of the released product**: no released instance makes this call today, and the details below (including the endpoint address and the exact bucket spellings) may still change before it ships. It is published so that a security reviewer can see exactly what the call will carry before it exists. The [deployment guide](./deployment.md) lists the check-in as "Not yet shipped" and will be updated when it is.
-:::
-
 The license check-in is a small, periodic call from your Desnarl instance to the license portal. It lets the portal tell the instance whether its license key is in good standing. This page documents the whole exchange so you can audit exactly what leaves your network.
 
 ## What is sent
@@ -20,7 +16,7 @@ It never sends repo content, file paths, repo names, symbol names, source code o
 The request is an HTTPS `POST` with a JSON body. The key is in the body, never in the URL or query string, so it does not appear in URLs recorded by proxies or access logs.
 
 ```http
-POST https://<license-portal-host>/api/license/...
+POST https://desnarl.com/api/license/check-in
 Content-Type: application/json
 
 {
@@ -30,9 +26,7 @@ Content-Type: application/json
 }
 ```
 
-:::note[Endpoint address not final]
-`https://<license-portal-host>/api/license/...` is a placeholder. The real host and path will be published here when the server side is finished.
-:::
+The default endpoint is `https://desnarl.com/api/license/check-in`. The client uses exactly this path, makes no other request, and refuses redirects. It waits up to 5 seconds for an answer and reads at most 4 KB of it. You can [switch the check-in off or point it at another host](#settings).
 
 The body has exactly these three fields. A request with any other field is rejected.
 
@@ -97,21 +91,77 @@ Responses carry `Cache-Control: no-store`.
 
 The client treats each of these as **no answer**, never as `blocked`:
 
-- an HTTP `400`, `429` or `5xx`;
+- an HTTP `400`, `429` or `5xx`, or any status other than `200`;
 - a network error or timeout;
-- a response that is not JSON;
-- an unknown `contractVersion`;
-- an unknown `state`;
-- an unknown `reason`.
+- a response that is not valid JSON;
+- an unknown `contractVersion`, `state` or `reason`;
+- a `grace` answer whose `daysRemaining` is outside 0 to 7.
 
-A "no answer" counts toward the offline grace below. A failure or outage on the license server can therefore never block you by itself.
+A "no answer" never blocks by itself. It only adds to the silence clock described next, so a failure or outage on the license server cannot block you on its own account.
 
 ## Cadence and offline behaviour
 
-- **Normal cadence:** the instance checks in daily.
-- **Offline grace:** if the instance cannot get a successful check-in, it keeps working for 7 days. After that the tool degrades with a hard block. This is separate from the 7-day payment grace above: the two are counted independently.
-- **After a block:** a blocked instance re-checks on startup and hourly, so a customer who has just paid is not kept out for up to a day.
-- **Air-gapped installs:** the planned design includes an explicit opt-out for installs with no outbound access, in the same spirit as the registry-resolution setting described in the [deployment guide](./deployment.md#registry-resolved-version-skew-checks). The setting name and its exact effect will be documented here when the client ships.
+The instance checks in once when it starts, then roughly daily (with random jitter, so a fleet does not call in at once). It never calls more often than hourly. A check-in never delays the server starting or answering a query.
+
+Two separate counters decide what you see. They are counted independently.
+
+**Silence: no authenticated answer.** An *authenticated answer* is a complete, valid `200` response from the endpoint. Anything else is "no answer". The silence clock runs from the last authenticated answer, or from the first attempt if there has never been one. Any authenticated answer resets it.
+
+| Days with no authenticated answer | What happens |
+|---|---|
+| 0 to 6 | Nothing. The tool works normally, with no notice. |
+| 7 to 29 | The tool keeps working and shows a non-blocking **unverified** notice. |
+| 30 or more | The tool blocks locally. |
+
+**Payment: an authenticated `grace` answer.** If the portal answers `grace`, you have 7 days from the payment failure, counted down from the time your instance received the answer (the server's clock is never used for counting). The tool keeps working and shows a payment-problem notice. When the portal then answers `blocked` with `payment_overdue`, the tool blocks.
+
+**Blocked answers.** An authenticated `blocked` answer with a known `reason` blocks at once, whatever the silence clock says. The block lasts until the next authenticated answer that is not `blocked`. A blocked instance re-checks about hourly, so a customer who has just paid is not kept out for up to a day.
+
+If the machine's clock is set back, the client counts that as no time elapsed rather than as extra time.
+
+## Settings
+
+Both are environment variables, set in the same `env` block as your license key.
+
+| Variable | Effect |
+|---|---|
+| `CROSSREPOGRAPH_DISABLE_LICENSE_CHECKIN` | Set to `true` (any case) or `1` to switch the check-in off. Nothing is sent, no `checkin-state.json` is written, no notices appear and nothing blocks. It wins over every other setting. This is the opt-out for air-gapped installs, in the same spirit as the registry-resolution setting in the [deployment guide](./deployment.md#registry-resolved-version-skew-checks). Any other value leaves the check-in on. |
+| `CROSSREPOGRAPH_CHECKIN_URL` | Replaces the default endpoint, for a staging host or a test. It must be `https`, use exactly the path `/api/license/check-in`, and carry no credentials, query string or fragment. An invalid value switches the check-in off, prints one fixed line on stderr that does not repeat the value, and **never falls back to the default**. |
+
+## What stays on your machine
+
+The check-in keeps one file in your [state directory](./state-directory.md), `checkin-state.json`. It is versioned and holds:
+
+- a SHA-256 hash of your license key, never the key itself;
+- the time of the first attempt and of the last authenticated answer;
+- the last authenticated answer: its state, the `reason` or `daysRemaining` if it had one, and when it arrived.
+
+It is safe to delete, and the next check-in recreates it. If it cannot be written, the tool keeps working. A block the portal has answered comes back at the next check-in.
+
+## How notices appear
+
+The server cannot push anything to your AI client, and many hosts do not show stderr. So notices travel in the tool results themselves:
+
+- A short, fixed line is placed at the start of a tool's result. It is added to results only. It never goes in the MCP server `instructions`, which hosts cache.
+- The **unverified** notice appears once per session.
+- The **payment-problem** notice appears once per session, and again at most every six hours in the last 48 hours of the grace period.
+- After a block, a tool call returns a single fixed message instead of running. The message depends on the `reason` (for example, the payment-overdue message), or is the 30-day silence message. The list of tools does not change.
+
+Every word is fixed text inside your instance, chosen by state or reason code. The only value ever filled in is a whole number of days. The server sends no text, so nothing it returns can put its own words in front of you or your AI client.
+
+## If you are blocked or see an unverified notice
+
+- **Unverified notice:** your instance has not reached the portal for 7 days or more. Nothing is broken and the tool keeps working. Connect the machine to the internet (or allow outbound HTTPS to `desnarl.com`) and the next check clears it.
+- **Blocked for 30 days of silence:** connect to the internet. The tool resumes within an hour of the next check, with no restart needed.
+- **Blocked for `payment_overdue` or `canceled`:** bring the payment up to date, or start a new subscription. It resumes within an hour of the next check.
+- **`revoked` or `unknown_key`:** check the value of `CROSSREPOGRAPH_LICENSE_KEY`. A revoked key needs a replacement from the vendor.
+- **No outbound access at all:** use `CROSSREPOGRAPH_DISABLE_LICENSE_CHECKIN`, above.
+
+If you believe a block is wrong, see [Getting help](../troubleshooting.md#getting-help). The in-portal ticket system is not live yet, and there is no email or Discord support. Never put your license key in a ticket.
+
+### Accepted risk
+
+A TLS-intercepting proxy that your machine trusts can answer `blocked`, and so block that machine until the next genuine answer. The client cannot tell such a proxy from the portal.
 
 ## What the server keeps
 

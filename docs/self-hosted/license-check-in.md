@@ -144,7 +144,7 @@ The server cannot push anything to your AI client, and many hosts do not show st
 
 - A short, fixed line is placed at the start of a tool's result. It is added to results only. It never goes in the MCP server `instructions`, which hosts cache.
 - The **unverified** notice appears once per session.
-- The **payment-problem** notice appears once per session, and again at most every six hours in the last 48 hours of the grace period.
+- The **payment-problem** notice appears once per session, and again at most every six hours in the final day of the grace period.
 - After a block, a tool call returns a single fixed message instead of running. The message depends on the `reason` (for example, the payment-overdue message), or is the 30-day silence message. The list of tools does not change.
 
 Every word is fixed text inside your instance, chosen by state or reason code. The only value ever filled in is a whole number of days. The server sends no text, so nothing it returns can put its own words in front of you or your AI client.

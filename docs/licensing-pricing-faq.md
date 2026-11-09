@@ -47,7 +47,7 @@ Using Desnarl's source to train commercial AI or machine-learning models, or to 
 
 No. Storage and compute both run where you run them — the operator never holds your repo content. See [Self-hosted deployment](./self-hosted/deployment.md) for the complete, itemized list of the (small number of) network calls Desnarl does make, none of which carry repo content.
 
-**On GDPR specifically:** this reduces Desnarl's GDPR exposure to standard SaaS-signup scope — it does not eliminate it. Account creation, and any future license check-in, are still personal/business data processing under GDPR's general scope even though your code never leaves your infrastructure.
+**On GDPR specifically:** this reduces Desnarl's GDPR exposure to standard SaaS-signup scope — it does not eliminate it. Account creation, and the license check-in, are still personal/business data processing under GDPR's general scope even though your code never leaves your infrastructure.
 
 ## How do I get help?
 

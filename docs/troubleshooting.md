@@ -5,7 +5,7 @@ title: Troubleshooting
 
 # Troubleshooting & recovery
 
-This page covers the recovery scenarios that are actually documented today. A stuck license check-in past its grace period is not one of them — that mechanic isn't built yet, and its own grace-period length isn't decided, so recovery guidance for it would be a guess rather than a documented procedure. This section will be extended once that ships. A missing or malformed license key is covered below.
+This page covers the recovery scenarios that are documented today. A license check-in that is stuck, showing an "unverified" notice or blocking, is covered in [License check-in](./self-hosted/license-check-in.md#if-you-are-blocked-or-see-an-unverified-notice). A missing or malformed license key is covered below.
 
 ## SQLite corruption
 

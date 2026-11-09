@@ -17,11 +17,11 @@ Desnarl makes network calls in four places, allowlisted by design and kept minim
 | Ingestion (polling your own repos) | `github.com` / `api.github.com` | Shipped |
 | Registry-resolved version-skew checks | `registry.npmjs.org` | Shipped |
 | Staleness-monitoring alert | your configured Discord/Slack webhook | Built, not yet active |
-| [License check-in](./license-check-in.md) | the license portal | Not yet shipped |
+| [License check-in](./license-check-in.md) | `desnarl.com` (the license portal) | Shipped; can be switched off |
 
-Two of the four are live today: ingestion and registry lookups. The staleness alert's code is built, but no released instance starts it yet, so no alert is sent. The license check-in is designed and not part of the product yet.
+Three of the four are live today: ingestion, registry lookups and the license check-in. The staleness alert's code is built, but no released instance starts it yet, so no alert is sent. The license check-in is in the product from v0.2.0: it sends your license key, a repo-count range and the tool version about once a day, and you can switch it off with `CROSSREPOGRAPH_DISABLE_LICENSE_CHECKIN` for an air-gapped install.
 
-None of these ever transmit repo content, file paths, or source code — only what each section below documents explicitly (a package name, a webhook post, a license identifier). This is **"GDPR exposure reduced to standard SaaS-signup scope, not eliminated"** — account creation and any future license check-in are still personal/business data processing under GDPR's general scope, even though repo content itself never leaves your infrastructure.
+None of these ever transmit repo content, file paths, or source code — only what each section below documents explicitly (a package name, a webhook post, a license identifier). This is **"GDPR exposure reduced to standard SaaS-signup scope, not eliminated"** — account creation and the license check-in are still personal/business data processing under GDPR's general scope, even though repo content itself never leaves your infrastructure.
 :::
 
 ## Ingestion authentication

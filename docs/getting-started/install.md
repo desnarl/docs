@@ -66,6 +66,12 @@ The `env` block passes the license key from the section above. The workspace roo
 
 Not every client uses this `mcpServers` format, and clients differ in how they show tools. See [Client compatibility](./compatibility.md) for the clients we have tested.
 
+### Register it where you start your sessions
+
+Some clients keep a server registration against the folder you added it from, so it is only available to sessions started in that folder. Claude Code does this by default: a server added with `claude mcp add` is stored for the current folder only. Desnarl is for workspaces of several repos, and people often start a session inside one repo rather than at the workspace root, so a registration made at the root is missing there.
+
+Register it for your whole user account instead (in Claude Code, `claude mcp add --scope user ...`), or once for each folder you start sessions in. Check from a repo folder that the tools are listed. The server's workspace argument stays the workspace root either way; only where the client remembers the registration changes.
+
 ## Where your data goes
 
 There is no indexing step. Desnarl reads your repos the first time you ask a question that needs them, then keeps what it parsed in a cache, one per workspace, in a separate **state directory**. It never writes into your repos, so there is nothing to add to a `.gitignore`. The server prints the state directory's location on stderr at startup. The first query on a large workspace is slow, because nothing is cached yet; later ones re-read only the repos whose files changed. See [What Desnarl keeps on disk](../self-hosted/state-directory.md) for the location on each system and how the cache is refreshed.
@@ -76,7 +82,7 @@ Connecting the server does not make an agent use it. Left alone, many agents ans
 
 ### Tell the agent to prefer the tools
 
-Paste this into your agent's instructions file (`CLAUDE.md` for Claude Code), in the repo you work from:
+Paste this into your agent's instructions file (`CLAUDE.md` for Claude Code), in the repo you work from. In Claude Code you can instead put one copy at the workspace root: Claude Code also reads `CLAUDE.md` from parent folders, so a session started in any repo below the root receives it (checked on Claude Code 2.1.319). Other clients may not read parent folders; check yours.
 
 ````markdown
 ## Cross-repo dependency questions
@@ -97,7 +103,7 @@ Replace `crossrepograph` in the `select:` string with the key you used under `mc
 
 ### Allow the read-only tools
 
-By default the client asks before every tool call. The six query tools only read, so you can allow them. In Claude Code, add this to `.claude/settings.json`:
+By default the client asks before every tool call. The six query tools only read, so you can allow them. In Claude Code, add this to `.claude/settings.json`. That file applies only to sessions started in the folder that holds it: we found that a session started in a repo folder did not use the rules in a `.claude/settings.json` at the workspace root, and was asked before every call (checked on Claude Code 2.1.319). To allow the tools in every repo, add the same rules to your user settings file, `~/.claude/settings.json`, instead; or add the file to each repo you start sessions in.
 
 ```json
 {
@@ -132,7 +138,7 @@ Open the instructions file you pasted into (`CLAUDE.md` for Claude Code) and del
 
 ### Remove the allow rules
 
-In the settings file where you added them, delete the six rules listed under [Allow the read-only tools](#allow-the-read-only-tools), and nothing else. Leave any rules you already had. If you used a server name other than `crossrepograph`, the rule names carry that name. `crossrepo_confirm` and `crossrepo_confirm_schema_ref` were never in the list, so there is nothing to remove for them.
+In each settings file where you added them (`~/.claude/settings.json`, a repo's `.claude/settings.json`, or both), delete the six rules listed under [Allow the read-only tools](#allow-the-read-only-tools), and nothing else. Leave any rules you already had. If you used a server name other than `crossrepograph`, the rule names carry that name. `crossrepo_confirm` and `crossrepo_confirm_schema_ref` were never in the list, so there is nothing to remove for them.
 
 ### Remove the server
 

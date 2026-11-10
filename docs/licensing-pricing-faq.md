@@ -15,7 +15,7 @@ Pricing is a flat fee per workspace, gated by license type — not usage-metered
 
 ## How is a commercial license enforced?
 
-It isn't, mechanically. **Licensing is self-attested, not enforced or verified** — whether your use is commercial or non-commercial is a declaration you make, not something the software checks. Nothing in Desnarl inspects your usage to confirm your license type.
+It isn't, mechanically. **Licensing is self-attested, not enforced or verified** — whether your use is commercial or non-commercial is a declaration you make, not something the software checks. The license check-in sends your key, a bucketed repo count and the tool version, but nothing in it is used to confirm whether your use is commercial or non-commercial.
 
 ## Is Desnarl open source?
 

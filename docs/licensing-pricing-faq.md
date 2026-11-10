@@ -29,10 +29,10 @@ PolyForm does not define "non-commercial". It says "Any noncommercial purpose is
 
 | Your situation | Where it lands |
 | --- | --- |
-| A personal project, hobby, learning or experiment with no anticipated commercial application | Non-commercial (the licence's "personal uses") |
+| A personal project, hobby, personal study, or research, experiment or testing for the benefit of public knowledge, with no anticipated commercial application | Non-commercial (the licence's "personal uses") |
 | A charity, school or university, public research body, public safety or health body, environmental protection organisation or government institution, using it for its own work | Non-commercial, whatever funds it (the licence's "noncommercial organizations") |
 | A company of any size, including a startup, using it for its own products or services | Commercial |
-| A consultancy or agency running it on clients' repos | Commercial |
+| A consultancy or agency running it on clients' repos | Commercial. It needs a commercial licence. Whether that covers use on a client's repositories is not settled yet; ask us first. |
 | A company trying it out to decide whether to buy | Commercial. An evaluation by a company is not a non-commercial use. |
 | A university spin-out or startup built on research | Commercial, once the aim is commercial advantage |
 | A side project run at, or for the benefit of, your employer | Treat as commercial |

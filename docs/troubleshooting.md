@@ -13,16 +13,6 @@ This page covers the recovery scenarios that are documented today. A license che
 
 There is no in-place repair path for a corrupted `.db` file. Recovery is to restore your most recent checkpointed backup (see [Self-hosted deployment → Storage & upgrades](./self-hosted/deployment.md#storage--upgrades) for what a valid backup actually requires) and let this instance's own migration/reindex path bring it back up to date on next startup. There is currently no automated corruption *detection* separate from the open failing outright.
 
-## Failed ingestion mid-run
-
-A scheduled pull can fail for a few distinct, categorized reasons rather than one generic error:
-
-- **`auth-failure`** — the configured deploy key/PAT was rejected (expired, revoked, or under-scoped). Fix: rotate or re-scope the credential in your own infrastructure and restart ingestion — no data is lost, the next scheduled poll picks up where the last successful one left off.
-- **`network-error`** — the request to the git remote failed outright, or returned a non-2xx status that wasn't an auth rejection. Fix: check your own network path to the remote; this isn't something this instance can recover from on its own.
-- **`host-rejected`** / **`redirect-rejected`** — the configured remote URL (or a redirect it returned) isn't `github.com`/`api.github.com` over `https`. This is a configuration error, not a transient failure — correct the configured remote URL rather than retrying.
-
-None of these leave the local clone at `repos/<repo-name>/` in your [state directory](./self-hosted/state-directory.md) in a state that needs manual cleanup: a failed fetch simply leaves the prior successful clone in place, unindexed until the next successful poll.
-
 ## A repo is listed as `path_outside_repo` {/* #path-outside-repo */}
 
 `path_outside_repo` is a reason in `unresolvableRepos` on `crossrepo_consumers` and `crossrepo_impact`. It means a `package.json` in that sibling repo (or its `pnpm-workspace.yaml`) names a path that points outside the repo's own checkout, so Desnarl did not read it. The fields checked are `main`, `types`, `exports` and `workspaces`, and a default entry file such as `index.js` or `src/index.ts`. An absolute path, a `..` path that leaves the repo, and a path that resolves through a symlink to somewhere outside the repo all count. A symlink or other non-regular file at the named path is rejected too, even if it points to a place inside the same repo.
@@ -79,4 +69,4 @@ Support is an **in-portal ticket system** — file a ticket from inside the lice
 
 **There is no email support and no public Discord (or other community) support channel, for any tier — that's a deliberate, permanent decision, not a temporary gap.** Don't file an issue on this repo, or reach out via any other channel, expecting a support response.
 
-When the in-portal ticket system is available: **never share your license key or your deploy key/PAT in a support request.** If you need to demonstrate a problem, share only the output of your instance's self-diagnostic report (license status, staleness, version) — never the raw credential. Likewise, never send `graph.db`, `query-log.jsonl` or any indexed repo content off your own network for debugging — Desnarl's entire data-custody guarantee depends on that content never leaving your infrastructure, and a support request is not an exception to it.
+When the in-portal ticket system is available: **never share your license key in a support request.** If you need to demonstrate a problem, share only the output of your instance's self-diagnostic report (license status, staleness, version) — never the raw license key. Likewise, never send `graph.db`, `query-log.jsonl` or any indexed repo content off your own network for debugging — Desnarl's entire data-custody guarantee depends on that content never leaving your infrastructure, and a support request is not an exception to it.

@@ -5,24 +5,31 @@ title: Install
 
 # Install
 
-**Requirements:** Node.js >= 24.
+**Requirements:** Node.js >= 24 (for the npm package), or a container runtime (for the image). Desnarl reads your repos from disk and writes its cache to a [state directory](../self-hosted/state-directory.md) outside them, so the user running the server needs read access to the workspace and write access to that directory.
 
 ## Supported languages
 
 Desnarl reads **TypeScript and Go** repos only. A subdirectory counts as a repo if it has a `package.json` or a `go.mod` at its top level. **Python is not supported in `v0.2.0`.** Support for it is planned after launch, with no date. A Python repo in your workspace is not read, so an empty result for something Python code depends on does not mean nothing depends on it.
 
-## Build from source
+## Choose an install channel
 
-```bash
-npm install
-npm run build
-```
+Every channel needs a [license key](#license-key) and runs the same server over stdio. Your MCP client launches it; you do not start it yourself.
 
-This produces `dist/mcp/index.js` — the stdio MCP server entry point.
+| Channel | Use it when | How |
+|---|---|---|
+| **npm, through `npx`** (primary) | You use an MCP client on your own machine | Put `npx -y @desnarl/crossrepograph <workspace-root>` in the client's MCP configuration (below). Nothing to install first. |
+| **npm, global install** | You want the first start to be fast, or to pin a version | `npm i -g @desnarl/crossrepograph`, then use the command `crossrepograph` in the client's configuration. |
+| **Container image** | A locked-down machine or a container-based setup | `ghcr.io/desnarl/crossrepograph`. See [Run the container image](../self-hosted/docker.md). |
 
-:::caution[Distribution channel not finalized]
-This section documents the source build (clone → `npm install` → `npm run build`), which is what's confirmed working today. A packaged distribution (npm package, container image, or GitHub release) is not yet decided — this page will be updated once it is. Don't build tooling against an assumed package name or image tag; none is official yet.
-:::
+All three are published from the same release tag. The [GitHub release](https://github.com/desnarl/crossrepograph/releases) lists the image pull command pinned to a digest, the npm package name and the checksum of the npm tarball.
+
+**The first start is slower.** The first `npx` run downloads the package and its native tree-sitter grammars, so the first start takes longer than later ones, and a client with a short start-up timeout can mark the server as failed on that first launch. If that happens, run `npm i -g @desnarl/crossrepograph` once and restart the client. We have not measured how long a cold download takes.
+
+**Versions and tags.** A plain release tag such as `v0.2.0` publishes to the npm `latest` tag. A tag with a hyphen (a pre-release) publishes to `next` and never to `latest`. The image follows the same rule for its `latest` tag. npm releases are staged and go live only when a maintainer approves them, so a GitHub release can appear a little before the npm version does.
+
+**The image is built for `linux/amd64` only.** On an ARM host it will not pull a matching image, or will run under slow emulation. Use the npm package there.
+
+**Building from source** is for contributors, not for using Desnarl. It is `npm install` then `npm run build` in a checkout of [`desnarl/crossrepograph`](https://github.com/desnarl/crossrepograph), which produces `dist/mcp/index.js`. Point `"command": "node"` at that file in place of the `npx` line below.
 
 ## License key
 
@@ -49,9 +56,10 @@ Point it at the workspace root directory that contains your sibling repos as imm
 {
   "mcpServers": {
     "crossrepograph": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/absolute/path/to/crossrepograph/dist/mcp/index.js",
+        "-y",
+        "@desnarl/crossrepograph",
         "/absolute/path/to/your-workspace"
       ],
       "env": {
@@ -62,7 +70,9 @@ Point it at the workspace root directory that contains your sibling repos as imm
 }
 ```
 
-The `env` block passes the license key from the section above. The workspace root is a required positional argument — the server fails fast with a clear error if it's missing or not a directory, rather than starting silently and failing later once a tool is called.
+With a global install, use `"command": "crossrepograph"` and drop the first two `args`.
+
+The `env` block passes the license key from the section above. The workspace root is a required positional argument and must be an absolute path. The server fails fast with a clear error on stderr if it is missing, relative, does not exist or is not a directory, rather than starting and failing later once a tool is called (see [Troubleshooting](../troubleshooting.md#server-does-not-start)).
 
 Not every client uses this `mcpServers` format, and clients differ in how they show tools. See [Client compatibility](./compatibility.md) for the clients we have tested.
 
@@ -74,11 +84,30 @@ Register it for your whole user account instead (in Claude Code, `claude mcp add
 
 ## Where your data goes
 
-There is no indexing step. Desnarl reads your repos the first time you ask a question that needs them, then keeps what it parsed in a cache, one per workspace, in a separate **state directory**. It never writes into your repos, so there is nothing to add to a `.gitignore`. The server prints the state directory's location on stderr at startup. The first query on a large workspace is slow, because nothing is cached yet; later ones re-read only the repos whose files changed. See [What Desnarl keeps on disk](../self-hosted/state-directory.md) for the location on each system and how the cache is refreshed.
+There is no indexing command to run. When the server starts with a valid key, it begins reading your repos in the background, on a separate thread, and stores what it parses in a cache, one per workspace, in a separate **state directory**. It never writes into your repos, so there is nothing to add to a `.gitignore`. The server prints the state directory's location on stderr at startup, and two lines when the background read ends: `crossrepograph: cache warm-up finished (N repos, M already cached, T ms)`, or `crossrepograph: cache warm-up failed: <reason>`. A failed warm-up does not stop the server; the next query reads the repos itself.
+
+Queries do not wait for the background read, so the first query on a large workspace can still be slow, and later ones re-read only the repos whose files changed. We have not measured how much the background read shortens the first query. To switch it off, set `CROSSREPOGRAPH_DISABLE_WARMUP=true`. See [What Desnarl keeps on disk](../self-hosted/state-directory.md) for the location on each system and how the cache is refreshed, and [Configuration](../self-hosted/configuration.md) for every setting.
 
 ## Make your agent use it
 
 Connecting the server does not make an agent use it. Left alone, many agents answer a dependency question with `grep -r`. Three small steps fix that. The examples below use Claude Code's file formats; other clients have their own equivalents.
+
+### Do it with one command (Claude Code)
+
+`crossrepograph init` makes the two edits below for you, and `crossrepograph uninit` reverses them. It supports Claude Code only; for any other client, make the edits by hand as described in the next two sections.
+
+```sh
+npx -y @desnarl/crossrepograph init /absolute/path/to/your-workspace --dry-run   # show the changes only
+npx -y @desnarl/crossrepograph init /absolute/path/to/your-workspace             # show them, then ask
+```
+
+With a global install, run `crossrepograph init ...` instead. The workspace argument is optional and defaults to the current folder. What it does:
+
+- **Adds the instruction block to `CLAUDE.md` in the workspace root.** The block sits between `<!-- crossrepograph:start -->` and `<!-- crossrepograph:end -->`. If you already have a block, it is replaced in place; text outside the markers is not touched. If the markers are unbalanced it stops and tells you.
+- **Adds the six read-only allow rules to a Claude Code settings file.** The file depends on `--scope`: `user` (the default) is `~/.claude/settings.json`; `project` is `.claude/settings.json` in the workspace root; `local` is `.claude/settings.local.json` in the workspace root. A rule that is already in your `deny` or `ask` list is skipped, and your other rules are kept. `crossrepo_confirm` and `crossrepo_confirm_schema_ref` are never added.
+- **Does not edit your MCP client configuration.** It prints the `mcpServers` entry for you to add yourself, with a placeholder key. It never reads your license key.
+- **Shows a diff and asks before writing**, unless you pass `--yes` (or `-y`). Without a terminal and without `--yes` it shows the changes and exits with status 2. `--dry-run` writes nothing. Each file it changes first gets a backup next to it whose name ends in `.crossrepograph.bak`; add those to a `.gitignore` if you do not want them committed.
+- **Records what it changed** in the state directory, so that `uninit` can undo exactly that. Use `--server-name <name>` if you registered the server under a name other than `crossrepograph`; the allow rules carry that name. If you ran `init` with one scope, `uninit` first, or pass the same scope, before using another.
 
 ### Tell the agent to prefer the tools
 
@@ -128,9 +157,31 @@ The middle part of each name is the server name: whatever key you used in `mcpSe
 
 Open the savings report ([The savings report](../self-hosted/savings-report.md)). If `savings-audit-report.md` shows **Applicable but unused**, your workspace has cross-repo links but the agent has made no calls: it is not reaching for the tools, so check that its instructions mention them.
 
+## Your first query
+
+Restart your client, check that the Desnarl tools are listed, then ask your agent a question that crosses repos. Name a symbol and the repo folder that exports it (`sourceRepo` is the folder name under your workspace root):
+
+> Which repos in this workspace import `checkRateLimitWithPolicy` from `internal-packages`? Use the Desnarl tools, not grep.
+
+The agent should call `crossrepo_impact` with `{ "symbol": "checkRateLimitWithPolicy", "sourceRepo": "internal-packages" }`. A good answer names each consuming repo and file with a line number, and says what it could not read. Open one of the named files to confirm the import is there. Read these fields before you trust a short or empty answer: `unresolvableRepos`, `skippedFiles`, `missingSiblings`, `truncated` and `coverage` (see [reading a result](../mcp-tools/reference.md#reading-a-result)).
+
+Which tool for which question:
+
+| You want to know | Tool |
+|---|---|
+| Who uses this exported function, class or type | `crossrepo_impact` |
+| Who depends on this package, and on which versions | `crossrepo_consumers` |
+| Which repos touch this database table or column | `crossrepo_schema_refs` |
+| Which repos deploy or reference this service or image | `crossrepo_deployment_refs` |
+| Which repos' GitHub Actions call into this repo | `crossrepo_cicd_refs` |
+| Who publishes or subscribes to this message topic (Go only) | `crossrepo_topic_refs` |
+| Record that an earlier answer missed a consumer, or that an HTTP match was right or wrong | `crossrepo_confirm`, `crossrepo_confirm_schema_ref` (these write to the query log; a person or your own pipeline calls them, not a reading agent) |
+
+An empty result means only that no TypeScript, JavaScript or Go file in the checked-out repos matched. It says nothing about repos that are not checked out, other languages, or HTTP calls between services.
+
 ## Undo it
 
-You can reverse everything in "Make your agent use it" by hand. Do the first two to stop nudging the agent, the third to disconnect the server, and the fourth only if you want the cached data gone.
+If you used `crossrepograph init`, run `crossrepograph uninit` (same workspace and `--scope`) to reverse its two edits; it removes the block and the rules it added, asks before removing a block you have edited since, and removes the settings file or folder only if `init` created it. `uninit` does not touch your MCP client configuration or the state directory, so the last two steps below are always yours to do. To reverse it by hand instead: do the first two steps to stop nudging the agent, the third to disconnect the server, and the fourth only if you want the cached data gone.
 
 ### Remove the instructions
 
@@ -148,7 +199,14 @@ This is a separate step, because it removes the connection itself, not just the 
 
 Nothing above touches the [state directory](../self-hosted/state-directory.md); it stays in place. Deleting it is safe, because `graph.db` is a cache that is rebuilt on the next query. It also deletes the savings report and the query log, including any confirmations you recorded, so keep a copy of those first if you want them.
 
-The `crossrepograph init` and `crossrepograph uninit` commands, once released, will do these steps for you. Until then the steps above are the whole process.
+
+## Updating and uninstalling the program
+
+- **`npx`:** `npx -y` fetches the newest published version and caches it, so you may not get a newer release on a machine that already has one cached. To pick a version deliberately, put it in the `args`, for example `@desnarl/crossrepograph@<version>`.
+- **Global install:** `npm i -g @desnarl/crossrepograph` again to update; `npm rm -g @desnarl/crossrepograph` to remove.
+- **Image:** pull the new tag, and pin it by digest if you need repeatable runs. `docker rmi` removes it.
+
+Desnarl does not tell you when a newer release exists. A newer build applies any pending cache migrations on its next start. See [Storage & upgrades](../self-hosted/deployment.md#storage--upgrades).
 
 ## Restarting after an update
 
@@ -156,7 +214,9 @@ After changing the license key, restart the host (see [above](#if-the-key-is-mis
 
 ## Next
 
-- [Self-hosted deployment](../self-hosted/deployment.md) — the network calls v0.2.0 makes, storage and upgrades (staleness monitoring and git ingestion are built but not part of v0.2.0).
+- [Configuration](../self-hosted/configuration.md) — every environment variable.
+- [Run the container image](../self-hosted/docker.md) — the GHCR image.
+- [Self-hosted deployment](../self-hosted/deployment.md) — the network calls v0.2.0 makes, storage and upgrades.
 - [What Desnarl keeps on disk](../self-hosted/state-directory.md) — where the state directory is, what each file is, and how the cache is built and refreshed.
 - [MCP tool reference](../mcp-tools/reference.md) — what all eight tools take and actually return.
 - [Client compatibility](./compatibility.md) — the AI coding tools we have tested Desnarl with, and what we have not.

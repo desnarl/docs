@@ -23,15 +23,19 @@ A scheduled pull can fail for a few distinct, categorized reasons rather than on
 
 None of these leave the local clone at `repos/<repo-name>/` in your [state directory](./self-hosted/state-directory.md) in a state that needs manual cleanup: a failed fetch simply leaves the prior successful clone in place, unindexed until the next successful poll.
 
-## CI check reports "could not verify"
+## A repo is listed as `path_outside_repo` {/* #path-outside-repo */}
 
-This is the network-endpoint-backed check a *consuming* repo runs in its own CI (see [Self-hosted deployment → Network-queryable endpoint](./self-hosted/deployment.md#network-queryable-endpoint-for-ci)). When the whole check can't run, it reports a distinct, named reason rather than silently reading as "no consumers affected":
+`path_outside_repo` is a reason in `unresolvableRepos` on `crossrepo_consumers` and `crossrepo_impact`. It means a `package.json` in that sibling repo (or its `pnpm-workspace.yaml`) names a path that points outside the repo's own checkout, so Desnarl did not read it. The fields checked are `main`, `types`, `exports` and `workspaces`, and a default entry file such as `index.js` or `src/index.ts`. An absolute path, a `..` path that leaves the repo, and a path that resolves through a symlink to somewhere outside the repo all count. A symlink or other non-regular file at the named path is rejected too, even if it points to a place inside the same repo.
 
-- **`connection-failed`** — the CI runner couldn't reach this instance's network endpoint at all (DNS failure, connection refused, timeout). Fix: confirm the CI runner is genuinely inside the same network as this instance (a self-hosted runner, never a GitHub-hosted one) and that the endpoint URL in the consuming repo's workflow points at the right host/port.
-- **`unauthorized`** — the request reached this instance but its bearer token was rejected (missing, malformed, or since rotated on this instance without the consuming repo's own CI secret being updated to match). Fix: rotate/re-issue the token and update the token secret in every consuming repo's own CI — a shared token distributed to multiple repos means updating all of them, not just one.
-- **`rate-limited`** — this instance's own rate limiter has locked out the caller after repeated invalid-token attempts. Fix: wait out the configured lockout window, then confirm the token is actually correct before retrying.
+A repo with a symlinked workspace directory is reported as a whole under this reason today: if a `workspaces` pattern matches a symlink, the whole repo is listed in `unresolvableRepos`, not only that directory. None of that repo's packages are resolved. Replace the symlink with a real directory (or change the pattern) if you want the repo read.
 
-None of these three ever cause the check to report a false "no consumers affected" — a batch that can't run at all is always reported as unreachable, distinct from a completed batch.
+This is a safety limit, not a failure: a sibling repo is untrusted input, so a path it names is not followed out of its checkout. A target that does not exist yet (an unbuilt `dist/`) is not a `path_outside_repo` case.
+
+## Files were skipped (`skippedFiles`) {/* #skipped-files */}
+
+`crossrepo_consumers`, `crossrepo_impact` and `crossrepo_schema_refs` list files they did not read in a `skippedFiles` field: `skipped_oversize` for a file over its size cap, and `skipped_timeout` for a file whose parse took more than 2 seconds. A repo whose `package.json` or `pnpm-workspace.yaml` is over 1 MiB is listed in `unresolvableRepos` with the reason `manifest_too_large`.
+
+A skipped file is a possibly missing consumer, so an answer from a repo that has one is not proof of no impact. The caps, the exact field shape and which tools report skips are in the [tool reference](./mcp-tools/reference.md#skipped-files). There is nothing to fix on your side except to check the named file by hand; a `skipped_timeout` can depend on machine load, and the next query tries the file again.
 
 ## Docker image fails to pull or run
 
@@ -42,11 +46,12 @@ The image is published to `ghcr.io/desnarl/crossrepograph` on each tagged releas
 
 ## `crossrepo_consumers` returns no consumers
 
-An empty `consumers` list has three common causes. Check them in this order:
+An empty `consumers` list has four common causes. Check them in this order:
 
 1. **The package is third-party and nothing imports it.** For a package no checked-out sibling repo publishes (`zod`, `react`), Desnarl lists the files in sibling repos that import it, and sets `importBased: true`. An empty list then means no TypeScript or JavaScript file imports it by that name: side-effect-only imports, path aliases and Go are not counted (see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo-consumers)).
 2. **The publishing repo isn't checked out.** If the package is yours but its repo isn't a sibling folder under the workspace root, nothing resolves it. Look at `missingSiblings` for a scoped dependency that no checked-out sibling provides.
-3. **A repo couldn't be read.** A sibling whose `package.json` can't be parsed, whose declared entry point isn't built (`missing_entry_file`), or that has a name but declares no entry (`no_entry_declared`), appears in `unresolvableRepos`. So does a repo whose folder tree was too large to finish scanning for nested manifests (more than 500 directories, `scan_limit_reached`): it may hold modules that were not looked for. A repo whose manifests are only in subfolders is searched, not listed. Check that field before trusting a short or empty list.
+3. **A repo couldn't be read.** A sibling whose `package.json` can't be parsed, whose declared entry point isn't built (`missing_entry_file`), or that has a name but declares no entry (`no_entry_declared`), appears in `unresolvableRepos`. So does a repo with a `path_outside_repo` or `manifest_too_large` reason (both explained below), and a repo whose folder tree was too large to finish scanning for nested manifests (more than 500 directories, `scan_limit_reached`): it may hold modules that were not looked for. A repo whose manifests are only in subfolders is searched, not listed. Check that field before trusting a short or empty list.
+4. **A file in a repo was skipped.** A file over its size cap, or one that took more than 2 seconds to parse, is not read and may have been a consumer. Look for `skippedFiles` in the result. See [A repo is listed as `path_outside_repo`](#path-outside-repo) and [Files were skipped](#skipped-files) below.
 
 If `consumers` is empty or shorter than you expected, look at `declaredOnlyRepos` too. `declaredOnlyRepos` lists repos whose manifest declares this package but where no import of it was found. This is not proof the dependency is unused: it can be used by a config file, a CLI script, another language (Python, shell) or as a peer or transitive dependency. It says "declares X at range R but no import found", nothing more.
 

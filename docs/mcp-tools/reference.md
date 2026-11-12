@@ -81,7 +81,7 @@ Here `billing-api/src/index.ts` still has `import { legacyHash } from "@acme/sha
 - **Paths are repo-relative.** An import-based entry carries a path relative to its repo (`src/index.ts`), while an entry resolved from the export graph carries an absolute path.
 - **A package name two sibling repos both declare is not matched.** The import cannot be attributed to the source repo, so those imports are not listed. An empty list can therefore mean "ambiguous", not "no consumers".
 - **A deleted entry file is still reported.** If the source repo's entry file was deleted, `unresolvableRepos` still lists the repo with reason `missing_entry_file`, alongside the consumers found. Check it before trusting the list.
-- **Head checkout only.** Desnarl reads only the imports it has already parsed from each repo's current checkout. It does no merge-base reading and makes no network call. Comparing against a base ref is done by the GitHub Action, not by this tool.
+- **Head checkout only.** Desnarl reads only the imports it has already parsed from each repo's current checkout. It does no merge-base reading and makes no network call. It does not compare against a base ref.
 - **Only TypeScript and JavaScript files are read; Go imports are not.** A named import counts under its original name, so `import { legacyHash as hash }` is listed. A subpath import (`@acme/shared-lib/sub`) naming the symbol is also listed. A bare `export { legacyHash } from "@acme/shared-lib"` is listed too, since it is a file that still names the symbol. A destructured `require` or `import()` naming the symbol is listed. A namespace import (`import * as x`) or a non-destructured `require` names no symbol, so it is not matched. A side-effect-only import (`import "pkg"`) is not listed either, and a path alias (`@/lib/x`) is never matched to a package.
 
 ### Full behaviour notes {/* #crossrepo-impact-notes */}
@@ -98,7 +98,7 @@ Results are a starting point, not a verdict. The tool's own description in your 
 - Real TypeScript module-resolution-based alias and rename resolution, added on top of that heuristic for exactly two shapes (a plain `from`-clause rename and a monorepo path-alias rename): 0% false-negative and 0% false-positive over its own dedicated 2-case golden set.
 - Wrapped-function-body dataflow tracing, added on top of that: a single-level, direct `return imported(...)` shape only (function-declaration or arrow-function body). Multi-level internal wrapping and conditional or higher-order returns are explicit non-goals. Measured 0% false-negative and 0% false-positive over its own dedicated 5-case golden set.
 
-**Cost of alias resolution.** Resolving a repo's re-export aliases this way costs a real `ts.Program` construction per `from`-clause-re-exporting or wrap-shaped package with a resolvable `tsconfig.json`. It was measured at roughly 180-500ms per such repo on a project's own fixture workspace. It is negligible for the common case of a repo with neither shape, which is skipped via a cheap pre-check. The wrap-shape check reuses that same Program construction rather than a second one, so the cost does not compound per shape. A repo with no resolvable tsconfig, or whose Program construction otherwise fails, silently falls back to the same-name heuristic alone for that repo. It never produces a missing consumer or a thrown error because of that.
+**Cost of alias resolution.** Resolving a repo's re-export aliases this way costs a real `ts.Program` construction per `from`-clause-re-exporting or wrap-shaped package with a resolvable `tsconfig.json`. It was measured at roughly 180-500ms per such repo on a project's own fixture workspace. It is negligible for the common case of a repo with neither shape, which is skipped via a cheap pre-check. The wrap-shape check reuses that same Program construction rather than a second one, so the cost does not compound per shape. A repo with no resolvable tsconfig, or whose Program construction otherwise fails, silently falls back to the same-name heuristic alone for that repo. It never produces a missing consumer or a thrown error because of that. The compiler reads only files that resolve, after following symlinks, inside the workspace folder that holds your sibling checkouts. A path alias or symlink that leads outside that folder is not followed, and a file over the 2 MiB source cap is not read and is listed in `skippedFiles`.
 
 **Truncation by hop cap.** `truncated: true` means a further hop past the `maxHops` cap would add consumer files that are not shown. `hopCapHiddenFiles` counts them. It is never a silent omission, and `truncated` is `false` when the cap hides nothing.
 
@@ -115,7 +115,7 @@ Results are a starting point, not a verdict. The tool's own description in your 
 
 **Coverage.** Only TypeScript/JavaScript sources (declared in `package.json`) and Go sources (declared in `go.mod`) are parsed, and every JSON response repeats this in a top-level `coverage` field. An empty result says nothing about other languages (for example Python): it means only that no parsed TypeScript, JavaScript or Go file matched.
 
-**Unresolvable repos and nested modules.** A repo whose own `package.json` is unresolvable (unsupported workspaces glob, invalid JSON, a missing glob target, or a missing compiled entry point) is listed in `unresolvableRepos` rather than silently excluded. Cross-check this field before reading an empty or short `consumers` list as confident.
+**Unresolvable repos and nested modules.** A repo whose own `package.json` is unresolvable (unsupported workspaces glob, invalid JSON, a missing glob target, a missing compiled entry point, a path that leaves the repo's checkout, or a manifest over the size cap) is listed in `unresolvableRepos` rather than silently excluded. The full list of reasons is under [Scope and limitations](#scope-and-limitations). Cross-check this field before reading an empty or short `consumers` list as confident.
 
 - A checked-out repo whose `package.json` or `go.mod` files are only in subfolders, and a repo with a root `go.mod` plus nested `go.mod` files (Go sub-modules), are searched. Nested `go.mod` and `package.json` files are discovered up to three levels deep, and each nested module is searched as part of its repo: a Go consumer file with the version its own module's `go.mod` pins, and a TypeScript file with the range its nearest `package.json` declares.
 - A repo whose folder tree was too large to finish scanning for nested manifests (more than 500 directories) is listed in `unresolvableRepos` with reason `scan_limit_reached`. It may hold modules that were not looked for, so treat it as not fully searched: narrow the workspace to that repo, or check its subfolders by hand.
@@ -123,6 +123,8 @@ Results are a starting point, not a verdict. The tool's own description in your 
 - A workspace-glob negation (`!dir`, `!dir/**` in `pnpm-workspace.yaml` or `package.json` `workspaces`) is honoured only for a literal path. Any other negation is skipped, so a package it was meant to exclude can still be included.
 - A nested package that declares a name but no entry file is not a build gap, and is not listed with reason `no_entry_declared`, when it comes from a repo with no root `package.json` or has `private: true`, unless it is the package queried.
 - A consumer's `declaredVersionRange` is read from the `dependencies` table only. A file in a package that declares the queried package under `devDependencies`, `peerDependencies` or `optionalDependencies` is still listed as a consumer, with no `declaredVersionRange`.
+
+**Skipped files.** A file over its size cap, or one whose parse took more than 2 seconds, is not read, and the response lists it in `skippedFiles`. A skipped file is a possibly missing consumer. See [Skipped files, size caps and the parse time bound](#skipped-files).
 
 **Parameters.** `format` is optional: `"json"` (default) or `"mermaid"` for a rendered flowchart diagram of the same result. `maxHops` is optional (positive integer, default 4) and widens or narrows the re-export chain traversal depth.
 
@@ -213,7 +215,7 @@ Results are a starting point, not a verdict. The tool's own description in your 
 - Real TypeScript module-resolution-based alias and rename resolution, added on top of that heuristic for exactly two shapes (a plain `from`-clause rename and a monorepo path-alias rename): 0% false-negative and 0% false-positive over its own dedicated 2-case golden set.
 - Wrapped-function-body dataflow tracing, added on top of that: a single-level, direct `return imported(...)` shape only (function-declaration or arrow-function body). Multi-level internal wrapping and conditional or higher-order returns are explicit non-goals. Measured 0% false-negative and 0% false-positive over its own dedicated 5-case golden set.
 
-**Cost of alias resolution.** Resolving a repo's re-export aliases this way costs a real `ts.Program` construction per `from`-clause-re-exporting or wrap-shaped package with a resolvable `tsconfig.json`. It was measured at roughly 180-500ms per such repo on a project's own fixture workspace. It is negligible for the common case of a repo with neither shape, which is skipped via a cheap pre-check. The wrap-shape check reuses that same Program construction rather than a second one, so the cost does not compound per shape. A repo with no resolvable tsconfig, or whose Program construction otherwise fails, silently falls back to the same-name heuristic alone for that repo. It never produces a missing consumer or a thrown error because of that.
+**Cost of alias resolution.** Resolving a repo's re-export aliases this way costs a real `ts.Program` construction per `from`-clause-re-exporting or wrap-shaped package with a resolvable `tsconfig.json`. It was measured at roughly 180-500ms per such repo on a project's own fixture workspace. It is negligible for the common case of a repo with neither shape, which is skipped via a cheap pre-check. The wrap-shape check reuses that same Program construction rather than a second one, so the cost does not compound per shape. A repo with no resolvable tsconfig, or whose Program construction otherwise fails, silently falls back to the same-name heuristic alone for that repo. It never produces a missing consumer or a thrown error because of that. The compiler reads only files that resolve, after following symlinks, inside the workspace folder that holds your sibling checkouts. A path alias or symlink that leads outside that folder is not followed, and a file over the 2 MiB source cap is not read and is listed in `skippedFiles`.
 
 **Truncation by hop cap.** `truncated: true` means a further hop past the `maxHops` cap would add consumer files that are not shown. `hopCapHiddenFiles` counts them. It is never a silent omission, and `truncated` is `false` when the cap hides nothing.
 
@@ -230,7 +232,7 @@ Results are a starting point, not a verdict. The tool's own description in your 
 
 **Coverage.** Only TypeScript/JavaScript sources (declared in `package.json`) and Go sources (declared in `go.mod`) are parsed, and every JSON response repeats this in a top-level `coverage` field. An empty result says nothing about other languages (for example Python): it means only that no parsed TypeScript, JavaScript or Go file matched.
 
-**Unresolvable repos and nested modules.** A repo whose own `package.json` is unresolvable (unsupported workspaces glob, invalid JSON, a missing glob target, or a missing compiled entry point) is listed in `unresolvableRepos` rather than silently excluded. Cross-check this field before reading an empty or short `consumers` list as confident.
+**Unresolvable repos and nested modules.** A repo whose own `package.json` is unresolvable (unsupported workspaces glob, invalid JSON, a missing glob target, a missing compiled entry point, a path that leaves the repo's checkout, or a manifest over the size cap) is listed in `unresolvableRepos` rather than silently excluded. The full list of reasons is under [Scope and limitations](#scope-and-limitations). Cross-check this field before reading an empty or short `consumers` list as confident.
 
 - A checked-out repo whose `package.json` or `go.mod` files are only in subfolders, and a repo with a root `go.mod` plus nested `go.mod` files (Go sub-modules), are searched. Nested `go.mod` and `package.json` files are discovered up to three levels deep, and each nested module is searched as part of its repo: a Go consumer file with the version its own module's `go.mod` pins, and a TypeScript file with the range its nearest `package.json` declares.
 - A repo whose folder tree was too large to finish scanning for nested manifests (more than 500 directories) is listed in `unresolvableRepos` with reason `scan_limit_reached`. It may hold modules that were not looked for, so treat it as not fully searched: narrow the workspace to that repo, or check its subfolders by hand.
@@ -238,6 +240,8 @@ Results are a starting point, not a verdict. The tool's own description in your 
 - A workspace-glob negation (`!dir`, `!dir/**` in `pnpm-workspace.yaml` or `package.json` `workspaces`) is honoured only for a literal path. Any other negation is skipped, so a package it was meant to exclude can still be included.
 - A nested package that declares a name but no entry file is not a build gap, and is not listed with reason `no_entry_declared`, when it comes from a repo with no root `package.json` or has `private: true`, unless it is the package queried.
 - A consumer's `declaredVersionRange` is read from the `dependencies` table only. A file in a package that declares the queried package under `devDependencies`, `peerDependencies` or `optionalDependencies` is still listed as a consumer, with no `declaredVersionRange`.
+
+**Skipped files.** A file over its size cap, or one whose parse took more than 2 seconds, is not read, and the response lists it in `skippedFiles`. A skipped file is a possibly missing consumer. See [Skipped files, size caps and the parse time bound](#skipped-files).
 
 **Parameters.** `format` is optional: `"json"` (default) or `"mermaid"` for a rendered flowchart diagram of the same result. `maxHops` is optional (positive integer, default 4) and widens or narrows the re-export chain traversal depth.
 
@@ -268,6 +272,8 @@ Migration files are read from `.sql` files under directories named `migrations`,
 `matchedColumn` appears alongside `tableName`, set to the queried name, only when a **migration-sourced** reference matched a *column* name rather than the table name itself (omitted when the match was on the table name, or whenever `sourceKind` is `"application_code"`/`"http_indirection"` — column matching isn't attempted for either).
 
 `httpIndirectionUnresolved` is always present (an empty array when there's nothing to disclose) — it names a call site whose resolved URL genuinely matched a real route file in a real sibling repo, but whose queried table couldn't be confirmed within this tool's own resolution depth, so it may be a false negative rather than a confirmed absence.
+
+`skippedFiles` appears when a migration or application file was skipped (over its size cap, or a parse over 2 seconds), and is absent otherwise. A skipped file is a possibly missing reference, so an empty or short `references` list is not proof that nothing touches the table. See [Skipped files, size caps and the parse time bound](#skipped-files).
 
 **Accepted residual risk:** this tool returns raw migration/application-code/route-handler content by design, which can carry PII-shaped column names or internal architecture detail — a deliberate, documented tradeoff, not a gap.
 
@@ -502,11 +508,49 @@ That is five packages and four hops end to end, so the default of 4 covers all o
 
 **Schema references have their own, shorter limit.** `crossrepo_schema_refs` follows an HTTP call to the route that reads a table for at most **3** hops. A call site that would need more is listed in `httpIndirectionUnresolved` instead of being dropped, so it is disclosed as a possible false negative and not reported as absent.
 
+## Skipped files, size caps and the parse time bound {/* #skipped-files */}
+
+A sibling repo is untrusted input, so Desnarl bounds every file it reads. A file over its size cap is never read, and a parse that takes more than 2 seconds is abandoned. In both cases the file contributes nothing to the answer.
+
+**A skipped file is a possibly missing consumer.** If a repo has a skipped file, an empty or short answer is not proof of no impact, because the skipped file may be the one that imports your symbol or references your table. Read `skippedFiles` next to `unresolvableRepos` and `truncated` before treating an answer as complete, and check the named files by hand.
+
+**Size caps.** The cap depends on what the file is, not on its extension:
+
+| Kind | Cap | Files |
+|---|---|---|
+| Source | 2 MiB | Source files read for imports and exports, and files the TypeScript compiler reads while resolving aliases |
+| Manifest | 1 MiB | `package.json`, `pnpm-workspace.yaml`, `tsconfig.json`, `package-lock.json`, `go.mod` and `go_test.mod` |
+| Data | 5 MiB | SQL migration files read by `crossrepo_schema_refs`, and the deployment files (Helm templates and values, Kubernetes configuration) read by `crossrepo_deployment_refs` |
+
+**Parse time bound.** Each file parse is bounded at 2 seconds. A file that overruns it is skipped with the reason `skipped_timeout`. A timeout depends on machine load as much as on the file, so a result that included one is not cached and the next query tries the file again.
+
+**The `skippedFiles` field.** `crossrepo_consumers`, `crossrepo_impact` and `crossrepo_schema_refs` return it when at least one file was skipped, and omit it otherwise:
+
+```json
+{
+  "skippedFiles": [
+    { "path": "billing-api/src/generated/schema.ts", "reason": "skipped_oversize" },
+    { "path": "billing-api/src/vendor/bundle.js", "reason": "skipped_timeout" }
+  ],
+  "skippedFilesOmitted": 3
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `skippedFiles[].path` | The file, relative to your workspace root (it starts with the repo folder name) |
+| `skippedFiles[].reason` | `skipped_oversize`: the file is over its size cap and was never read. `skipped_timeout`: its parse took more than 2 seconds. |
+| `skippedFilesOmitted` | How many skipped files are not listed. At most **50** are listed, in path order. Present only when above zero. |
+
+**A manifest over the cap.** A `package.json` or `pnpm-workspace.yaml` over 1 MiB is not read, and its repo is listed in `unresolvableRepos` with the reason `manifest_too_large`.
+
+**Which tools do not report skips yet.** Only the three tools above report skipped files. `crossrepo_topic_refs`, `crossrepo_deployment_refs`, `crossrepo_cicd_refs`, `crossrepo_confirm` and `crossrepo_confirm_schema_ref` do not include `skippedFiles` in their results, so a file one of them could not read is not named.
+
 ## Scope and limitations
 
 - **Local sibling-checkout resolution only** for repo content — every answer is computed from what's actually checked out on disk under the workspace root you configured. See [Self-hosted deployment](../self-hosted/deployment.md) for the network calls this instance makes for ingestion, registry resolution, and alerting.
 - **A missing sibling repo is never a silent false negative.** If a repo referenced by a `package.json` dependency isn't present on disk, it shows up explicitly in `missingSiblings`, rather than the tool quietly reporting "no consumers."
-- **Neither is a present-but-broken one.** A sibling repo that can't be read, or that has no usable entry point, shows up in `unresolvableRepos: {repo, reason}[]`, so check this field before reading a short or empty `consumers` list as confident. `missing_entry_file` means the package declares an entry point but that file isn't on disk (typically not built). `no_entry_declared` means the package has a name but declares no entry field, has no default entry file, and exports no concrete subpath to read, so it is reported instead of being dropped silently. `scan_limit_reached` means the repo's folder tree was too large (more than 500 directories) to finish looking for nested manifests, so it may hold modules that were not searched; narrow the workspace to that repo, or check its subfolders by hand. Other reasons cover an unparseable `package.json` or a `go.mod` with no module directive.
+- **Neither is a present-but-broken one.** A sibling repo that can't be read, or that has no usable entry point, shows up in `unresolvableRepos: {repo, reason}[]`, so check this field before reading a short or empty `consumers` list as confident. `missing_entry_file` means the package declares an entry point but that file isn't on disk (typically not built). `no_entry_declared` means the package has a name but declares no entry field, has no default entry file, and exports no concrete subpath to read, so it is reported instead of being dropped silently. `scan_limit_reached` means the repo's folder tree was too large (more than 500 directories) to finish looking for nested manifests, so it may hold modules that were not searched; narrow the workspace to that repo, or check its subfolders by hand. `path_outside_repo` means a `package.json` or `pnpm-workspace.yaml` in the repo names a path (`main`, `types`, `exports`, `workspaces`, or a default entry file) that points outside the repo's checkout, is absolute, or is a symlink or other non-regular file, so it was not read. A repo with a symlinked workspace directory is reported as a whole under this reason today. `manifest_too_large` means a `package.json` or `pnpm-workspace.yaml` is over the 1 MiB manifest cap and was not read. The remaining reasons are `unsupported_workspaces_glob` (a workspaces pattern other than a literal path or whole-segment `*`), `missing_glob_target` (a workspaces pattern names a directory that does not exist), `invalid_package_json`, `invalid_pnpm_workspace_yaml` (the file has several YAML documents or no readable `packages:` list), `no_module_directive` (a `go.mod` with no module line) and `unreadable_go_mod`.
 - **Latency:** the first call after a repo's files change re-reads that repo, and on a large workspace this is slow: measured at roughly 27 to 36 seconds on a 13-repo workspace with an empty cache. Desnarl keeps each repo's parse result in its local database and checks it against the sizes and modification times of the repo's source files, manifests and built entry files on every call, so later calls that find nothing changed take well under a second (about 0.5 seconds in the same measurement, including from a freshly started server). A repo whose files changed is re-read on the next call. The check compares size and modification time, not file contents, so an edit that leaves both unchanged is not detected. Two concurrent calls fully serialize rather than overlap.
 - **A subpath import does not match the package root.** `import x from "@your-scope/pkg/sub"` is recorded under that full specifier, so it is not counted as a consumer of `@your-scope/pkg`.
 - **Which imports are read.** Imports are read from `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` and `.cjs` files. A namespace import (`import * as x from 'pkg'`) makes the file a consumer of the package. `crossrepo_consumers` lists it and tags it `namespace-import`; `crossrepo_impact` lists it under every symbol of that package with `resolutionMechanism: "namespace-import"`, meaning it *may* use that symbol, because member access such as `x.foo` is not followed. A `require('pkg')` or `import('pkg')` call whose argument is a string literal counts as an import: `const { a, b } = require('pkg')` records the named imports, and any other use is treated like a namespace import. Template literals, variables, concatenation, `require.resolve`, relative paths and anything inside a comment or string are not read, so a file that loads the package only that way is not listed.

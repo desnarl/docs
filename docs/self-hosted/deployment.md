@@ -34,21 +34,11 @@ None of these ever transmit repo content, file paths, or source code — only wh
 - If it leaks, revoke it immediately in GitHub's own UI (Settings → Developer settings → Personal access tokens, or the deploy-key list on the specific repo) and issue a new one — the old value stops working the moment it's revoked.
 - No fixed rotation cadence is enforced by the tool itself; rotate on a schedule matching your own organization's existing credential-rotation policy, or at minimum whenever team membership changes.
 
-## Network-queryable endpoint (for CI)
+## Network endpoint and CI check: planned, not in v0.2.0
 
-`src/mcp/network-*.ts` extends this instance's stdio MCP server with a Streamable HTTP transport, so a CI job can query `crossrepo_impact`/`crossrepo_consumers` over the network instead of running standalone. No other tool is exposed this way — the full MCP surface otherwise stays stdio-only.
-
-**Reachability: your own self-hosted GitHub Actions runner, never the public internet.** This instance should never be exposed to a GitHub-hosted runner or any other internet-facing caller — only a runner inside your own network should be able to reach it.
-
-**TLS is your own responsibility, not this process's.** The endpoint speaks plain HTTP — put it behind your own reverse proxy (or your runner network's own TLS termination) before treating the bearer token below as safely transmittable. A token sent over plaintext HTTP is trivially sniffable by anything else on that network path.
-
-**Credential custody.** The network endpoint's API token is the same credential class as the ingestion deploy key/PAT above: read from an environment variable or mounted secret at process start, compared in constant time, never persisted anywhere.
-
-- Don't commit it to source control or paste it into a public issue/PR.
-- If it leaks, generate a new one and update wherever your CI reads it from — the token is re-read fresh on every request, so rotation takes effect immediately, with no restart required.
-- No fixed rotation cadence is enforced by the tool itself; rotate on a schedule matching your own organization's existing credential-rotation policy, or at minimum whenever a CI runner's own access changes.
-
-Repeated invalid-token attempts are rate-limited, locking out a caller for a configurable window after a configurable number of failures — a distinct `429` response, separate from the `401` an individual bad request gets.
+:::note[Not part of v0.2.0]
+v0.2.0 runs as a local stdio MCP server only. It does not open a network port, so there is no endpoint for a CI job to query, and no API token, TLS set-up or runner reachability to configure. The code for a network-queryable endpoint is not included in the npm package or the Docker image. A network endpoint and a CI check that comments on pull requests are planned; neither ships with v0.2.0. This page will describe them when they do.
+:::
 
 ## Staleness monitoring
 
@@ -93,4 +83,4 @@ See [What Desnarl keeps on disk](./state-directory.md) for where the state direc
 
 See [The savings report](./savings-report.md) for where the per-workspace report lives and how to read it.
 
-See [Troubleshooting](../troubleshooting.md) for recovery from SQLite corruption, failed ingestion, and CI check failures.
+See [Troubleshooting](../troubleshooting.md) for recovery from SQLite corruption and failed ingestion.

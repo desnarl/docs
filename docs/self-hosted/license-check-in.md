@@ -7,6 +7,10 @@ title: License check-in
 
 The license check-in is a small, periodic call from your Desnarl instance to the license portal. It lets the portal tell the instance whether its license key is in good standing. This page documents the whole exchange so you can audit exactly what leaves your network.
 
+:::note[An honour check, not DRM]
+The license check is an honour check, not copy protection. It is not a way to stop someone who controls the machine. The state file it keeps is unsigned, and the check can be switched off with a documented setting (see [Settings](#settings)). This matches the position in the [licensing FAQ](../licensing-pricing-faq.md): licensing is self-attested, not enforced or verified. Nothing in the check-in confirms whether your use is commercial or non-commercial.
+:::
+
 ## What is sent
 
 Each check-in sends the license key, a bucketed repo count and the tool version, and nothing else.
@@ -121,12 +125,13 @@ If the machine's clock is set back, the client counts that as no time elapsed ra
 
 ## Settings
 
-Both are environment variables, set in the same `env` block as your license key.
+These are environment variables, set in the same `env` block as your license key.
 
 | Variable | Effect |
 |---|---|
 | `CROSSREPOGRAPH_DISABLE_LICENSE_CHECKIN` | Set to `true` (any case) or `1` to switch the check-in off. Nothing is sent, no `checkin-state.json` is written, no notices appear and nothing blocks. It wins over every other setting. This is the opt-out for air-gapped installs, in the same spirit as the registry-resolution setting in the [deployment guide](./deployment.md#registry-resolved-version-skew-checks). Any other value leaves the check-in on. |
 | `CROSSREPOGRAPH_CHECKIN_URL` | Replaces the default endpoint, for a staging host or a test. It must be `https`, use exactly the path `/api/license/check-in`, and carry no credentials, query string or fragment. An invalid value switches the check-in off, prints one fixed line on stderr that does not repeat the value, and **never falls back to the default**. |
+| `CROSSREPOGRAPH_CHECKIN_ALLOW_INSECURE_LOOPBACK` | Set to `true` (any case) or `1` to let `CROSSREPOGRAPH_CHECKIN_URL` use plain `http`, and only when its host is `127.0.0.1`, `localhost` or `[::1]`. It exists for testing against a server on the same machine. It does nothing without `CROSSREPOGRAPH_CHECKIN_URL`, and every other rule for that URL still applies. Any other value leaves it off. |
 
 ## What stays on your machine
 
@@ -135,6 +140,8 @@ The check-in keeps one file in your [state directory](./state-directory.md), `ch
 - a SHA-256 hash of your license key, never the key itself;
 - the time of the first attempt and of the last authenticated answer;
 - the last authenticated answer: its state, the `reason` or `daysRemaining` if it had one, and when it arrived.
+
+The file is not signed. A time stored in it that is more than 24 hours ahead of your machine's clock is treated as tampering and ignored: a future first-attempt time or a future time on the last answer discards the whole stored history, as if the file did not exist, and a future last-success time is dropped, so the silence clock runs from the first attempt as if no authenticated answer had ever arrived.
 
 It is safe to delete, and the next check-in recreates it. If it cannot be written, the tool keeps working. A block the portal has answered comes back at the next check-in.
 

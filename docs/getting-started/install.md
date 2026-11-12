@@ -156,7 +156,7 @@ After changing the license key, restart the host (see [above](#if-the-key-is-mis
 
 ## Next
 
-- [Self-hosted deployment](../self-hosted/deployment.md) — ingestion auth, the network-queryable CI endpoint, storage, and staleness monitoring (built, not yet active).
+- [Self-hosted deployment](../self-hosted/deployment.md) — ingestion auth, storage, and staleness monitoring (built, not yet active).
 - [What Desnarl keeps on disk](../self-hosted/state-directory.md) — where the state directory is, what each file is, and how the cache is built and refreshed.
 - [MCP tool reference](../mcp-tools/reference.md) — what all eight tools take and actually return.
 - [Client compatibility](./compatibility.md) — the AI coding tools we have tested Desnarl with, and what we have not.

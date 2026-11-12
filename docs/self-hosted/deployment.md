@@ -71,7 +71,7 @@ This instance keeps its graph state in a single SQLite file, `graph.db`, in your
 
 **Upgrading:** on every version bump, this instance runs any pending schema migrations automatically on next startup, inside a single transaction — a migration failing partway rolls back cleanly, leaving the database exactly as it was before the upgrade attempt. If the on-disk schema version is ever newer than a given build knows about (e.g. after rolling an instance back to an older release), startup fails fast with a clear error rather than silently misinterpreting a schema it doesn't recognize.
 
-**Rollback:** since a failed migration already rolls back automatically, "rolling back" in practice means reverting to the prior build. Restore your last checkpointed backup if you suspect any drift, then run the prior version against it. Version-currency (whether a newer release exists) is left to your own vigilance for now — this instance doesn't check in for update notifications.
+**Rollback:** since a failed migration already rolls back automatically, "rolling back" in practice means reverting to the prior build. Restore your last checkpointed backup if you suspect any drift, then run the prior version against it. This instance does not tell you when a newer release exists. Whether one exists is left to your own vigilance for now. The [license check-in](./license-check-in.md) reports only the standing of your license and does not report whether an update is available.
 
 ## Next
 

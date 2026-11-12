@@ -36,7 +36,7 @@ The body has exactly these three fields. A request with any other field is rejec
 
 | Field | Type | Rules |
 |---|---|---|
-| `key` | string | Your license key: `crg_` followed by 32 lowercase hexadecimal characters. |
+| `key` | string | Your license key: `crg_` followed by 32 lowercase hexadecimal characters. The portal accepts only that. The instance's own local format check is wider (it accepts any lowercase letters or digits, so it can start), so a key outside the hexadecimal set passes the local check but is rejected by the portal as a malformed request, which the instance treats as no answer. |
 | `repoBucket` | string | One of a closed set: `"1-5"`, `"6-20"`, `"21-100"`, `"100+"`. An exact repo count is rejected. |
 | `toolVersion` | string | Up to 64 characters: letters, digits, `.`, `+` and `-`, starting with a letter or digit. |
 
@@ -105,7 +105,7 @@ A "no answer" never blocks by itself. It only adds to the silence clock describe
 
 ## Cadence and offline behaviour
 
-The instance checks in once when it starts, then roughly daily (with random jitter, so a fleet does not call in at once). It never calls more often than hourly. A check-in never delays the server starting or answering a query.
+With a missing or malformed key the server does not check in at all: it serves only `crossrepo_license_required` and makes no network call. With a valid-looking key, the instance checks in once when it starts, then roughly daily (with random jitter, so a fleet does not call in at once). It never calls more often than hourly. A check-in never delays the server starting or answering a query.
 
 Two separate counters decide what you see. They are counted independently.
 
@@ -129,7 +129,7 @@ These are environment variables, set in the same `env` block as your license key
 
 | Variable | Effect |
 |---|---|
-| `CROSSREPOGRAPH_DISABLE_LICENSE_CHECKIN` | Set to `true` (any case) or `1` to switch the check-in off. Nothing is sent, no `checkin-state.json` is written, no notices appear and nothing blocks. It wins over every other setting. This is the opt-out for air-gapped installs, in the same spirit as the registry-resolution setting in the [deployment guide](./deployment.md#registry-resolved-version-skew-checks). Any other value leaves the check-in on. |
+| `CROSSREPOGRAPH_DISABLE_LICENSE_CHECKIN` | Set to `true` (any case) or `1` to switch the check-in off. Nothing is sent, no `checkin-state.json` is written, no notices appear and nothing blocks. It wins over every other setting. This is the supported setting for installs with no outbound access; pair it with the registry-resolution setting as described in [Configuration](./configuration.md#running-without-outbound-access). Without the check-in, the portal cannot tell the instance about a payment problem or a revoked key. Any other value leaves the check-in on. |
 | `CROSSREPOGRAPH_CHECKIN_URL` | Replaces the default endpoint, for a staging host or a test. It must be `https`, use exactly the path `/api/license/check-in`, and carry no credentials, query string or fragment. An invalid value switches the check-in off, prints one fixed line on stderr that does not repeat the value, and **never falls back to the default**. |
 | `CROSSREPOGRAPH_CHECKIN_ALLOW_INSECURE_LOOPBACK` | Set to `true` (any case) or `1` to let `CROSSREPOGRAPH_CHECKIN_URL` use plain `http`, and only when its host is `127.0.0.1`, `localhost` or `[::1]`. It exists for testing against a server on the same machine. It does nothing without `CROSSREPOGRAPH_CHECKIN_URL`, and every other rule for that URL still applies. Any other value leaves it off. |
 

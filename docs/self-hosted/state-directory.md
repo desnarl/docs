@@ -26,7 +26,7 @@ The server prints the folder on stderr every time it starts, as a line beginning
 
 The default does not depend on where your MCP client happens to launch the server from, and it lives outside the server's own install folder, so upgrading the install does not replace it.
 
-The folder is created on first start, readable and writable by your user only (mode `0700` on macOS and Linux). If it cannot be created or written, the server prints a plain message on stderr and exits with a non-zero status. A missing or malformed license key never reaches this point: the server serves only `crossrepo_license_required` and touches no state.
+The folder is created on first start, readable and writable by your user only (mode `0700` on macOS and Linux). If an existing state directory is readable by your group or by everyone, the server prints a warning on stderr (`state directory ... is group- or world-accessible`) and leaves the permissions alone, because it holds repo structure and the query log; consider `chmod 700`. If it cannot be created or written, the server prints a plain message on stderr and exits with a non-zero status. A missing or malformed license key never reaches this point: the server serves only `crossrepo_license_required` and touches no state.
 
 ### Docker
 
@@ -47,9 +47,9 @@ Earlier builds kept this data in `.crossrepograph/` inside the checkout. Nothing
 | `savings-audit-log.jsonl` | One line per call, recording the figures behind the savings report. |
 | `savings-audit-snapshot.json` | The latest per-workspace count of links by kind and repos by language, written as a by-product of a call. The savings report reads it instead of walking your workspace again. |
 | `savings-audit-report.md` | The savings report. See [The savings report](./savings-report.md). |
+| `init-manifest.json` | Written by `crossrepograph init` (mode `0600`): what it added, so `uninit` can remove exactly that. Not present if you never ran `init`. See the [install page](../getting-started/install.md#do-it-with-one-command-claude-code). |
+| `corrections.jsonl` | Only with the [corrections beta](./configuration.md#corrections-beta) on: the false-positive and false-negative reports. |
 | `checkin-state.json` | A versioned record of the [license check-in](./license-check-in.md): when it first tried, when it last got an authenticated answer, and that answer (its state, and the reason or days remaining if it had one). It holds a hash of your license key, not the key. Safe to delete: the next check-in recreates it. Not written if the check-in is switched off. |
-| `monitoring-state.json` | Staleness-alert bookkeeping. Staleness monitoring is [built but not part of v0.2.0](./deployment.md#staleness-monitoring), so v0.2.0 does not write this file. |
-| `repos/<repo-name>/` | Not used in v0.2.0. It is where clones would go if [git ingestion](./deployment.md#git-ingestion-planned-not-in-v020) ships; v0.2.0 does not create it. |
 
 The report and ledger files are regenerated after every tool call, so editing them by hand achieves nothing.
 
@@ -57,8 +57,8 @@ The report and ledger files are regenerated after every tool call, so editing th
 
 There is no indexing command to run, and no background process. Desnarl builds its cache on demand, inside tool calls.
 
-- **Starting the server** opens `graph.db` and prepares it. It reads none of your repos.
-- **The first `crossrepo_impact` or `crossrepo_consumers` call** reads every repo it needs and stores the result in `graph.db`. On a large workspace this call is slow, because nothing is cached yet: [measured at roughly 27 to 36 seconds](../mcp-tools/reference.md#scope-and-limitations) on a 13-repo workspace. Later calls are much faster. The other query tools do not use the cache.
+- **Starting the server** opens `graph.db` and prepares it, then starts a background read of your repos on a separate thread (see the [install page](../getting-started/install.md#where-your-data-goes); switch it off with `CROSSREPOGRAPH_DISABLE_WARMUP`). The background read fills the same cache a query would.
+- **The first `crossrepo_impact` or `crossrepo_consumers` call** reads every repo it needs and stores the result in `graph.db`. On a large workspace this call is slow if the background read has not already cached the repos, because nothing is cached yet: [measured at roughly 27 to 36 seconds](../mcp-tools/reference.md#scope-and-limitations) on a 13-repo workspace. Later calls are much faster. The other query tools do not use the cache.
 - **Every call checks for changes.** The workspace's repo list is rebuilt on each call, so a repo you add is picked up by the next call. For each repo, Desnarl compares the size and modification time of its source files, manifests and built entry files (usually in `dist/`) with what it stored. A repo that differs is read again in full on that call, and one that matches is not. It does not compare file contents, so an edit that changes neither a file's size nor its modification time is not noticed.
 - **The refresh is per repo, not per file, and it happens inside the call.** The call waits while it runs. Nothing watches your files between calls.
 - **How to tell.** Each `crossrepo_impact` and `crossrepo_consumers` response carries `cacheHit` and `cache`, which show how many repos were served from the cache. See [Cache fields](../mcp-tools/reference.md#cache-fields). A response never says an answer is stale, because every call re-checks first.

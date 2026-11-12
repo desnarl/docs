@@ -132,7 +132,7 @@ Results are a starting point, not a verdict. The tool's own description in your 
 
 *"Who depends on this shared package, and are they all on compatible versions?"*
 
-Given a shared package name, returns every sibling repo that consumes it, each consumer's own declared version range (from its own `package.json`, or for a Go consumer the version its `go.mod` requires), a `versionSkew` flag for whether those declared ranges are skewed across consumers, plus any repo referenced by a dependency that isn't checked out locally. The response is bounded: `consumerRepos` is the complete list of consuming repos, and `consumers` is a sample of at most 50 consuming files (see below). Each consumer also carries a `resolvedVersion` (via a lockfile-first, registry-fallback lookup) and `resolutionMethod` (`"lockfile" | "registry" | "unresolved" | "disabled" | undefined`), plus a top-level `resolvedVersionSkew` flag computed only from those resolved values.
+Given a shared package name, returns every sibling repo that consumes it, each consumer's own declared version range (from its own `package.json`, or for a Go consumer the version its `go.mod` requires), a `versionSkew` flag for whether those declared ranges are skewed across consumers, plus any repo referenced by a dependency that isn't checked out locally. The response is bounded: `consumerRepos` is the complete list of consuming repos, and `consumers` is a sample of at most 50 consuming files (see below). Each consumer also carries a `resolvedVersion` (via a lockfile-first, registry-fallback lookup) and `resolutionMethod` (`"lockfile" | "registry" | "unresolved" | "disabled" | "not-attempted" | undefined`), plus a top-level `resolvedVersionSkew` flag computed only from those resolved values.
 
 ```json
 // Request
@@ -198,6 +198,8 @@ Results are a starting point, not a verdict. The tool's own description in your 
 **Go declared version.** For a Go consumer, `declaredVersionRange` is the version its `go.mod` `require` line pins for the queried module (for example `v0.72.0`, or a pseudo-version). When `go.mod` has no such line, its `go_test.mod` is used. It is read as written: `replace` directives are not applied. Go pins are exact, so any two different required versions count as `versionSkew`, including minor differences within `v1`. A Go consumer with no `require` for the module has no declared version and is left out.
 
 **Declared ranges that cannot be compared.** A consumer whose declared range is not a `^`, `~` or exact `x.y.z` version (`workspace:*`, `catalog:`, `>=`, x-ranges, tags) is still listed, flagged `rangeComparable: false`, and excluded from `versionSkew`. `skewExcludedCount` says how many were excluded, so `versionSkew: false` then means no skew among the comparable ranges only. Dev, peer and optional dependency ranges are not read at all (see the `dependencies`-table rule below).
+
+**How `versionSkew` is decided.** For npm ranges, two consumers are skewed when their declared ranges (`^`, `~` or exact `x.y.z`) have different **major** versions, or, for a `0.x` version, different minor versions. A spread inside one major (`~1.8.0` next to `^1.24.0`) is not flagged. For Go, any two different pins are skewed (see Go consumers). Ranges that are not `^`, `~` or exact are left out and counted in `skewExcludedCount`.
 
 **Declared versus resolved skew.** `versionSkew` is declared-range-based (what each consumer's `package.json` says it accepts). `resolvedVersionSkew` is computed only from resolved values (what actually gets installed). Ranges can look skewed while the resolved versions agree, or vice versa.
 
@@ -430,6 +432,25 @@ Records a person's verdict on one HTTP-indirection match, so a spurious one can 
 ```
 
 It writes one query-log entry per call and never rewrites an existing one. The entry is always marked `"manual"`: this tool has no automated path, and, like `crossrepo_confirm`, it trusts what it is told.
+
+## Reading a result {/* #reading-a-result */}
+
+Every `crossrepo_impact` and `crossrepo_consumers` answer is a starting point. Read these fields before you rely on a short or empty one:
+
+| Field | What it tells you | What to do |
+|---|---|---|
+| `coverage` | The languages and manifests that were parsed (TypeScript, JavaScript, Go; `package.json`, `go.mod`) | An empty result says nothing about anything else. |
+| `unresolvableRepos` | Repos that were named but could not be read, each with a `reason` | The answer may be missing consumers from them. See [Scope and limitations](#scope-and-limitations) and [troubleshooting](../troubleshooting.md#unresolvable-reasons). |
+| `missingSiblings` | Repos that a `package.json` references but that are not checked out (`not_checked_out`) | Check them out beside the others, or treat the answer as incomplete. |
+| `skippedFiles`, `skippedFilesOmitted` | Files that were over a size cap or took more than 2 seconds to parse | Check the named files by hand. See [Skipped files](#skipped-files). |
+| `truncated` (with `hopCapHiddenFiles`, `omittedConsumerFiles`, `starExpansionOmittedSymbols`, `untracedStarBarrelFiles`) | A real further hop, file or barrel was not shown | Read as "not verified", never "no more consumers". |
+| `versionSkew`, `resolvedVersionSkew`, `skewExcludedCount` | Whether declared ranges (or resolved versions) differ, by the rule above | `null` for `resolvedVersionSkew` means resolved versions were not checked. |
+| `resolutionMethod` | How versions were resolved: `lockfile`, `registry`, `disabled`, `mixed`, `not-attempted` or `null` | `disabled` means the registry lookup is switched off. |
+| `declaredOnlyRepos` | Repos whose manifest declares the package but where no import was found | Not proof the dependency is unused. |
+| `importBased` | The answer came from imports, not from the exporting package's export graph | A "review these files" list, not proof of a break. |
+| `cacheHit`, `cache` | How many repos were served from the cache | Informational. |
+
+**An empty result does not mean nothing depends on it.** It means no TypeScript, JavaScript or Go file in the checked-out repos matched under the rules on this page. Check `unresolvableRepos`, `missingSiblings`, `skippedFiles` and `coverage` first, and remember that repos that are not checked out, other languages, and HTTP calls between services are not read.
 
 ## Cache fields {/* #cache-fields */}
 

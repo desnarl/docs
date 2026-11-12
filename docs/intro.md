@@ -11,6 +11,8 @@ Desnarl traces impact, consumers, and schema references across every repo in you
 
 Because the edges are resolved by static analysis of your checked-out source rather than by a model re-reading your code each time, the same checkout gives the same answer to the same question, and every result names the consuming repo, file and import site, so you can check it by opening the file. That repeatable, inspectable answer is what lets you check a result rather than trust it. It is a heuristic over literal names, not a proof of completeness; see below for what it does not catch.
 
+**Languages and network.** Desnarl reads TypeScript, JavaScript and Go repos only. It makes two network calls in v0.2.0, a daily license check-in and an npm registry lookup for package versions; neither sends repo content, and both can be switched off. The [licensing FAQ](./licensing-pricing-faq.md) covers what the license allows.
+
 Start with [Getting started → Install](./getting-started/install.md), then [Self-hosted deployment](./self-hosted/deployment.md) for what Desnarl stores and which network calls it makes.
 
 :::note[Naming: Desnarl vs. crossrepograph]

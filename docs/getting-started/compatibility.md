@@ -50,7 +50,7 @@ The checks used a small sample workspace, not a large real one. The first call o
 
 ## Not yet tested
 
-We have not tested the following, so we do not say whether they work: Claude Desktop, VS Code, Zed, Cursor and Windsurf. They speak MCP, which is a reason to expect them to work, not evidence that they do. This page will be updated as each is checked.
+We have not tested the following, so we do not say whether they work, and we give no setup for them: Claude Desktop, VS Code, Zed, Cursor and Windsurf. They speak MCP, which is a reason to expect them to work, not evidence that they do. Testing them is planned, and this page will be updated as each is checked. `crossrepograph init` supports Claude Code only.
 
 ## A client is not a model
 
@@ -84,7 +84,7 @@ The JSON on the [install page](./install.md#add-it-to-your-mcp-client) is the `m
 - **Antigravity CLI**: `agy mcp add --env CROSSREPOGRAPH_LICENSE_KEY=<key> crossrepograph node <path-to>/dist/mcp/index.js <your-workspace>`.
 - **Grok Build**: `grok mcp add --scope user --env CROSSREPOGRAPH_LICENSE_KEY=<key> crossrepograph node -- <path-to>/dist/mcp/index.js <your-workspace>`. A server added with `--scope project` is not started until that folder is trusted in an interactive session. Grok also starts any other MCP servers you have configured.
 
-Replace `<key>` with your own license key. Client commands and file formats change between releases; if one of these no longer works, check the client's own MCP documentation.
+The commands above show the form for a source build (`node <path-to>/dist/mcp/index.js`). With the npm package, use `npx` as the command and `-y @desnarl/crossrepograph <your-workspace>` as its arguments, or `crossrepograph <your-workspace>` after a global install; we ran these four clients with the source-build form and did not re-run each with `npx`. Replace `<key>` with your own license key. Client commands and file formats change between releases; if one of these no longer works, check the client's own MCP documentation.
 
 ### Gemini CLI
 

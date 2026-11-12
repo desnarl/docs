@@ -11,7 +11,7 @@ This page covers the recovery scenarios that are documented today. A license che
 
 `graph.db`, in your [state directory](./self-hosted/state-directory.md), is a single SQLite file; on-disk corruption (a killed process mid-write with WAL not yet checkpointed, a bad disk sector, a partial volume-mount copy) surfaces as SQLite's own error on next open, most commonly `database disk image is malformed`.
 
-There is no in-place repair path for a corrupted `.db` file. Recovery is to restore your most recent checkpointed backup (see [Self-hosted deployment → Storage & upgrades](./self-hosted/deployment.md#storage--upgrades) for what a valid backup actually requires) and let this instance's own migration/reindex path bring it back up to date on next startup. There is currently no automated corruption *detection* separate from the open failing outright.
+There is no in-place repair path for a corrupted `.db` file. `graph.db` is a cache, so the fix is to stop the server, delete `graph.db`, `graph.db-wal` and `graph.db-shm`, and start it again: it recreates the database and reads every repo again on the next query, which is slow once. Do not delete the rest of the state directory unless you mean to: `query-log.jsonl` holds your confirmations (see [What Desnarl keeps on disk](./self-hosted/state-directory.md#deleting-graphdb)). If you keep backups of the state directory (see [Self-hosted deployment → Storage & upgrades](./self-hosted/deployment.md#storage--upgrades) for what a valid backup requires), restoring one also works. There is currently no automated corruption *detection* separate from the open failing outright.
 
 ## A repo is listed as `path_outside_repo` {/* #path-outside-repo */}
 
@@ -20,6 +20,16 @@ There is no in-place repair path for a corrupted `.db` file. Recovery is to rest
 A repo with a symlinked workspace directory is reported as a whole under this reason today: if a `workspaces` pattern matches a symlink, the whole repo is listed in `unresolvableRepos`, not only that directory. None of that repo's packages are resolved. Replace the symlink with a real directory (or change the pattern) if you want the repo read.
 
 This is a safety limit, not a failure: a sibling repo is untrusted input, so a path it names is not followed out of its checkout. A target that does not exist yet (an unbuilt `dist/`) is not a `path_outside_repo` case.
+
+## Other `unresolvableRepos` reasons {/* #unresolvable-reasons */}
+
+Besides `path_outside_repo`, `manifest_too_large`, `missing_entry_file`, `no_entry_declared` and `scan_limit_reached` (described above and in the [tool reference](./mcp-tools/reference.md#scope-and-limitations)), three reasons name a `package.json` problem:
+
+- **`invalid_package_json`:** the repo's `package.json` is not valid JSON. Fix the file.
+- **`unsupported_workspaces_glob`:** a `workspaces` pattern is something other than a literal path or a whole-segment `*`. Use a form Desnarl reads, or list the packages explicitly.
+- **`missing_glob_target`:** a `workspaces` pattern names a directory that does not exist. Fix the pattern or check out the missing folder.
+
+In each case the repo is named, not dropped, so an answer that lists it is not proof of no impact.
 
 ## Files were skipped (`skippedFiles`) {/* #skipped-files */}
 
@@ -47,6 +57,26 @@ If `consumers` is empty or shorter than you expected, look at `declaredOnlyRepos
 
 For a package a sibling publishes, an import of a subpath (`@your-scope/pkg/sub`) is counted only when that package's `exports` map allows it. For a third-party package, any subpath import counts, marked `importBased`. For how a package is judged internal, see [`crossrepo_consumers`](./mcp-tools/reference.md#crossrepo-consumers). `versionSkew` is only meaningful once `consumers` is non-empty.
 
+## Server does not start, or shows as failed {/* #server-does-not-start */}
+
+Run the server from a terminal with the same arguments and environment your client uses, and read stderr. These are the messages it can print and what to do. (A missing or malformed license key is a separate case, covered in the next section.)
+
+| Message on stderr | Cause and fix |
+|---|---|
+| `Usage: crossrepograph-mcp <workspace-root> ...` | No workspace argument. Add the absolute path of the folder that holds your repos as the last argument. |
+| `Workspace root must be an absolute path: ...` | A relative path was given. Use an absolute path: a client launches the server from a folder you do not control. |
+| `Workspace root does not exist: ...` or `... is not a directory` | The path is wrong, or (in the container) is not mounted where you think. |
+| `CROSSREPOGRAPH_STATE_DIR must be an absolute path, got: ...` | Set the variable to an absolute path. |
+| `State directory ... is inside the workspace being indexed ...` | The state directory, set or default, resolves inside the workspace. Set `CROSSREPOGRAPH_STATE_DIR` to a path outside it. |
+| `Cannot create or write to the state directory ...` | The folder cannot be created or written. Set `CROSSREPOGRAPH_STATE_DIR` to a writable absolute path, or in the container mount a volume at `/state` that uid 1000 can write. |
+| `state directory ... is group- or world-accessible (mode ...)` | A warning, not a failure. The folder holds repo structure and the query log; run `chmod 700` on it. |
+| `Database schema user_version (N) is newer than any migration this build knows about ...` | `graph.db` was written by a newer release than the one you are running. Run the newer release again, or delete `graph.db*` (see above) to start fresh. |
+| `old state found at ... set CROSSREPOGRAPH_STATE_DIR to keep using it` | A notice about the `.crossrepograph/` folder an earlier build left in its checkout. Not an error. |
+| `crossrepograph: cache warm-up failed: ...` | The background read of your repos failed. The server keeps running and the next query reads the repos itself. If it repeats, the reason names the cause. |
+| `crossrepograph: CROSSREPOGRAPH_CHECKIN_URL is not a valid https endpoint, so the licence check is off.` | The override is not an `https` URL with the exact path `/api/license/check-in`. The check-in is off until you fix or unset it. |
+
+If the client shows the server as failed but nothing prints in a terminal, the likely causes are: Node.js older than 24 (check `node -v` in the environment the client uses, which for a desktop client is not always your shell's), a client that cannot find `npx` on its `PATH`, or a cold `npx` download that outlasted the client's start-up timeout (run `npm i -g @desnarl/crossrepograph` once, then use the command `crossrepograph`). A failed query-log or report write is also reported on stderr but does not fail the tool call.
+
 ## Only `crossrepo_license_required` appears, or Desnarl's tools are missing
 
 With no license key, or one that is not `crg_` followed by 32 lowercase letters or digits, the host connects and shows a single tool, `crossrepo_license_required`. Its text tells you to set `CROSSREPOGRAPH_LICENSE_KEY`. The eight query tools do not appear. The server also prints the message on stderr, which you will see if you launch it from a terminal.
@@ -65,8 +95,8 @@ If a query takes much longer than that, the cause is usually the workspace or th
 
 ## Getting help
 
-Support is an **in-portal ticket system** — file a ticket from inside the license portal at [desnarl.com](https://desnarl.com), once you've created an account and signed in. That system is not live yet; this page will link directly to it once it ships.
+**Bug reports and feature requests** go to Issues on the public repository, [`desnarl/crossrepograph`](https://github.com/desnarl/crossrepograph/issues). Issues are public, and they are not a support channel: there is no promised response time. **Never post a license key, the contents of `query-log.jsonl` or `graph.db`, repo or package names you treat as confidential, or file paths from your workspace.** Share the Desnarl version, the exact error line printed on stderr, and the text of any notice a tool result showed (for example an unverified or payment-problem notice).
 
-**There is no email support and no public Discord (or other community) support channel, for any tier — that's a deliberate, permanent decision, not a temporary gap.** Don't file an issue on this repo, or reach out via any other channel, expecting a support response.
+**Problems with your license or payment** go through an **in-portal ticket system**, from inside the license portal at [desnarl.com](https://desnarl.com) once you have created an account and signed in. That system is not live yet; this page will link to it once it ships.
 
-When the in-portal ticket system is available: **never share your license key in a support request.** Desnarl v0.2.0 has no self-diagnostic report, so there is nothing to export. If you need to demonstrate a problem, share only the Desnarl version, the error message printed on stderr, and the text of any notice a tool result showed (for example, an unverified or payment-problem notice) — never the raw license key. Likewise, never send `graph.db`, `query-log.jsonl` or any indexed repo content off your own network for debugging — Desnarl's entire data-custody guarantee depends on that content never leaving your infrastructure, and a support request is not an exception to it.
+**There is no email support and no public Discord (or other community) support channel, for any tier.** Desnarl v0.2.0 has no self-diagnostic report, so there is nothing to export. Never send `graph.db`, `query-log.jsonl` or any indexed repo content off your own network for debugging: Desnarl's data-custody guarantee depends on that content staying with you, and a bug report is not an exception to it.

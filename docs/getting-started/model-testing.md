@@ -90,6 +90,10 @@ We did not run scenarios 3 to 10 on real code. Scenarios 3 and 4 have nothing to
 
 ### Results
 
+:::note[These model runs are historical]
+The table below was recorded on 2026-10-08 against an earlier Desnarl build. The zeros for the four TypeScript workspaces were findings about that build, and Desnarl has changed since. See [Tool-only results on the current build](#current-tool-only) for the same workspaces run without a model. We have not re-run the model scenarios.
+:::
+
 Runs passed out of runs made, per cell. "Passed" means the scorer's key was satisfied.
 
 | Workspace, scenario | Haiku | Sonnet 5.5 | Opus 5.5 | What the tool returned |
@@ -132,6 +136,27 @@ We classified the first sentence of each answer in the 30 runs on the four TypeS
 ### Tool-only pass
 
 Before the model runs, we called the tools directly on the same workspaces, with no model, and compared the results with the same ground truth. The tool returned the right consumers on NATS and Prometheus (the four packages asked about each) and Charm (two packages), and on Kubernetes when asked about a package path. It returned none on the four TypeScript workspaces, and none when asked about the Kubernetes module root rather than a package path. It reported no version skew on Kubernetes, Prometheus or NATS, though ground truth had it on all three. It also labelled Go test files as source files.
+
+## Tool-only results on the current build {/* #current-tool-only */}
+
+On 2026-11-11 we called the tools directly, with no model, on the same eight pinned workspaces (67 repos) and compared the repos they returned with the ground truth read from the code in October. The build was the engine's `main` at commit `524fa49`, with registry resolution off, `maxHops` 4 and no cache. The ground truth was read from the checkouts by hand, never by running Desnarl.
+
+| Workspace (tool call) | Expected consuming repos | Returned | Notes |
+|---|---|---|---|
+| Anthropic SDK, `crossrepo_consumers` | 3 | 3 | |
+| Stripe samples, `crossrepo_consumers` | 13 | 13 | Two further expected repos no longer exist on GitHub and could not be fetched. |
+| OpenAI samples, `crossrepo_consumers` | 13 | 11, plus 2 in `declaredOnlyRepos` | Both others declare the package but import nothing; the tool lists them separately. |
+| Temporal samples, `crossrepo_consumers` | 7 | 7 | Ground truth says the ranges are skewed; Desnarl says not (see below). |
+| Kubernetes, `crossrepo_impact` and `crossrepo_consumers` | 5 and 5 | 5 and 5 | |
+| Prometheus, `crossrepo_consumers` | 4 | 4 | |
+| NATS, `crossrepo_impact` and `crossrepo_consumers` | 3 and 3 | 3 and 3 | |
+| Charm, `crossrepo_consumers` | 4 | 4, plus 2 | The two extra are Go sub-modules that the ground truth leaves out by design; they do import the package. |
+
+Of 60 expected consuming repos that could be fetched, 58 were in the `consumers` list and the other 2 were disclosed under `declaredOnlyRepos`. No returned repo was a false match. Of 36 declared ranges checked, 1 differed: a repo with two `go.mod` files was reported with its sub-module's pin instead of the root module's.
+
+**Version skew.** `versionSkew` agreed with the ground truth in 7 of 8 comparisons. The eighth is a difference of definition: Desnarl flags skew when the major version differs (for `0.x`, the minor), so `~1.8.0` next to `^1.24.0` is not flagged. The ground truth counted any spread. See [How `versionSkew` is decided](../mcp-tools/reference.md#crossrepo-consumers).
+
+**How to read this.** These are eight curated open-source workspaces, with a ground truth at the level of repos, written by the same team that built the tool. They show that the tool finds the consumers of a hub package on real code. They are not a general accuracy rate, and they do not test file-level recall, renamed or wrapped re-exports (see the golden sets in the [tool reference](../mcp-tools/reference.md#crossrepo-impact-notes)), the other four read tools, or HTTP calls between services, which none of these workspaces contain. An uncached call took from about 4 seconds on the small workspaces to nearly a minute on Kubernetes and NATS on a machine that was not idle; see [Troubleshooting](../troubleshooting.md#how-long-should-a-query-take).
 
 ## What we have not run
 

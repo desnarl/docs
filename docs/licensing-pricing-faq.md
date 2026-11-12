@@ -11,11 +11,27 @@ title: Licensing & pricing FAQ
 
 > This figure is an explicit, unvalidated placeholder, not a finalized price. It's recorded here so this page tells you the current number honestly, not so you can treat it as locked. Check [desnarl.com](https://desnarl.com) for the current, authoritative price before relying on it for budgeting.
 
-Pricing is a flat fee per workspace, gated by license type — not usage-metered, not tiered by repo count. One price for a commercial license, regardless of workspace size.
+Pricing is a flat fee per GitHub organisation, gated by license type: not usage-metered, not tiered by repo count. One price for a commercial license, regardless of how many repos or people. (Throughout these docs, a *workspace* is the folder of sibling repos you point the server at. The license is per organisation, not per folder or per machine.)
+
+## What languages does it read?
+
+TypeScript, JavaScript and Go. A subdirectory counts as a repo if it has a `package.json` or a `go.mod`. Python is not supported in v0.2.0 and a Python repo is not read. See [Install → Supported languages](./getting-started/install.md#supported-languages).
+
+## Does it send my code to an AI model, or need the internet?
+
+Desnarl makes no model calls: it reads your checked-out repos on your own machine and answers by static analysis. It makes two network calls, a daily license check-in and an npm registry lookup for package versions, and neither sends repo content; see [Self-hosted deployment](./self-hosted/deployment.md). It can run with no outbound access if you switch both off: see [Configuration](./self-hosted/configuration.md#running-without-outbound-access). Your own AI client sends whatever it sends to its own model provider, which is outside Desnarl.
+
+## What happens if I stop paying?
+
+A failed payment starts a 7-day grace period, during which the tool keeps working and shows a notice. After that, or after a cancelation or revocation, the tool stops answering until the license is in good standing again. If the instance cannot reach the portal, it keeps working for a time and then pauses after 30 days without a verified answer. The details are on the [license check-in page](./self-hosted/license-check-in.md).
+
+## How do I get a free key?
+
+Free and noncommercial keys are requested at [desnarl.com/request-key](https://desnarl.com/request-key). A key is needed for every use, including non-commercial use, and the license check-in applies to it too.
 
 ## How is a commercial license enforced?
 
-It isn't, mechanically. **Licensing is self-attested, not enforced or verified** — whether your use is commercial or non-commercial is a declaration you make, not something the software checks. The license check-in sends your key, a bucketed repo count and the tool version, but nothing in it is used to confirm whether your use is commercial or non-commercial.
+It isn't, mechanically. **Licensing is self-attested, not enforced or verified** — whether your use is commercial or non-commercial is a declaration you make, not something the software checks. The license check-in sends your key, a bucketed repo count and the tool version, but nothing in it is used to confirm whether your use is commercial or non-commercial. Your license terms apply whether or not the check-in is switched on.
 
 ## Is Desnarl open source?
 
@@ -51,7 +67,7 @@ No. Storage and compute both run where you run them — the operator never holds
 
 ## How do I get help?
 
-Through an in-portal support ticket, once the license portal ships that feature — see [Troubleshooting → Getting help](./troubleshooting.md#getting-help). There is no email support and no public Discord/community support channel, for any tier.
+Bug reports and feature requests go to Issues on the public [`desnarl/crossrepograph`](https://github.com/desnarl/crossrepograph/issues) repository; they are not a support channel. License and payment problems go through an in-portal ticket, once the license portal ships that feature. See [Troubleshooting → Getting help](./troubleshooting.md#getting-help). There is no email support and no public Discord/community support channel, for any tier.
 
 ## Where do I buy a license or manage billing?
 

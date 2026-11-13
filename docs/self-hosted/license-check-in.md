@@ -143,7 +143,7 @@ The check-in keeps one file in your [state directory](./state-directory.md), `ch
 
 The file is not signed. A time stored in it that is more than 24 hours ahead of your machine's clock is treated as tampering and ignored: a future first-attempt time or a future time on the last answer discards the whole stored history, as if the file did not exist, and a future last-success time is dropped, so the silence clock runs from the first attempt as if no authenticated answer had ever arrived.
 
-It is safe to delete, and the next check-in recreates it. If it cannot be written, the tool keeps working. A block the portal has answered comes back at the next check-in.
+It is safe to delete, and the next check-in recreates it. Deleting it also restarts the 30-day silence clock, because the clock runs from the first attempt and the file holds that time. If it cannot be written, the tool keeps working. A block the portal has answered comes back at the next check-in.
 
 ## How notices appear
 

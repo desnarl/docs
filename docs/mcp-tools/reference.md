@@ -545,7 +545,7 @@ A sibling repo is untrusted input, so Desnarl bounds every file it reads. A file
 
 **Parse time bound.** Each file parse is bounded at 2 seconds. A file that overruns it is skipped with the reason `skipped_timeout`. A timeout depends on machine load as much as on the file, so a result that included one is not cached and the next query tries the file again.
 
-**The `skippedFiles` field.** `crossrepo_consumers`, `crossrepo_impact` and `crossrepo_schema_refs` return it when at least one file was skipped, and omit it otherwise:
+**The `skippedFiles` field.** `crossrepo_consumers`, `crossrepo_impact`, `crossrepo_schema_refs` and `crossrepo_deployment_refs` return it when at least one file was skipped, and omit it otherwise:
 
 ```json
 {
@@ -560,12 +560,14 @@ A sibling repo is untrusted input, so Desnarl bounds every file it reads. A file
 | Field | Meaning |
 |---|---|
 | `skippedFiles[].path` | The file, relative to your workspace root (it starts with the repo folder name) |
-| `skippedFiles[].reason` | `skipped_oversize`: the file is over its size cap and was never read. `skipped_timeout`: its parse took more than 2 seconds. |
+| `skippedFiles[].reason` | `skipped_oversize`: the file is over its size cap and was never read. `skipped_timeout`: its parse took more than 2 seconds. `skipped_unsafe_path`: the file was a symlink, a directory, a FIFO, a device or another file that is not a regular file, or its path led outside the repo's checkout, so it was not read. It can also mean the file named was no longer there when it was read. |
 | `skippedFilesOmitted` | How many skipped files are not listed. At most **50** are listed, in path order. Present only when above zero. |
 
 **A manifest over the cap.** A `package.json` or `pnpm-workspace.yaml` over 1 MiB is not read, and its repo is listed in `unresolvableRepos` with the reason `manifest_too_large`.
 
-**Which tools do not report skips yet.** Only the three tools above report skipped files. `crossrepo_topic_refs`, `crossrepo_deployment_refs`, `crossrepo_cicd_refs`, `crossrepo_confirm` and `crossrepo_confirm_schema_ref` do not include `skippedFiles` in their results, so a file one of them could not read is not named.
+**`skipped_unsafe_path` means a possibly missing reference.** A file in a sibling repo was a symlink or not a regular file, so Desnarl did not read it, and the answer may be missing something that file declares. Today only `crossrepo_deployment_refs` reports this reason, for the Helm and Kubernetes files it reads. Replace the symlink with a real file, or check the named file by hand. This is a safety limit, not a failure: a sibling repo is untrusted input, so Desnarl does not follow a path out of its checkout.
+
+**Which tools do not report skips yet.** Only the four tools above report skipped files. `crossrepo_topic_refs`, `crossrepo_cicd_refs`, `crossrepo_confirm` and `crossrepo_confirm_schema_ref` do not include `skippedFiles` in their results, so a file one of them could not read is not named.
 
 ## Scope and limitations
 

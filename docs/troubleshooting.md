@@ -33,9 +33,9 @@ In each case the repo is named, not dropped, so an answer that lists it is not p
 
 ## Files were skipped (`skippedFiles`) {/* #skipped-files */}
 
-`crossrepo_consumers`, `crossrepo_impact` and `crossrepo_schema_refs` list files they did not read in a `skippedFiles` field: `skipped_oversize` for a file over its size cap, and `skipped_timeout` for a file whose parse took more than 2 seconds. A repo whose `package.json` or `pnpm-workspace.yaml` is over 1 MiB is listed in `unresolvableRepos` with the reason `manifest_too_large`.
+`crossrepo_consumers`, `crossrepo_impact`, `crossrepo_schema_refs` and `crossrepo_deployment_refs` list files they did not read in a `skippedFiles` field: `skipped_oversize` for a file over its size cap, `skipped_timeout` for a file whose parse took more than 2 seconds, and `skipped_unsafe_path` for a file that was a symlink or not a regular file, so it was not read and the answer may be missing something that file declares (today only `crossrepo_deployment_refs` reports this one). A repo whose `package.json` or `pnpm-workspace.yaml` is over 1 MiB is listed in `unresolvableRepos` with the reason `manifest_too_large`.
 
-A skipped file is a possibly missing consumer, so an answer from a repo that has one is not proof of no impact. The caps, the exact field shape and which tools report skips are in the [tool reference](./mcp-tools/reference.md#skipped-files). There is nothing to fix on your side except to check the named file by hand; a `skipped_timeout` can depend on machine load, and the next query tries the file again.
+A skipped file is a possibly missing consumer, so an answer from a repo that has one is not proof of no impact. The caps, the exact field shape and which tools report skips are in the [tool reference](./mcp-tools/reference.md#skipped-files). There is nothing to fix on your side except to check the named file by hand (for `skipped_unsafe_path`, replacing the symlink with a real file also works); a `skipped_timeout` can depend on machine load, and the next query tries the file again.
 
 ## Docker image fails to pull or run
 

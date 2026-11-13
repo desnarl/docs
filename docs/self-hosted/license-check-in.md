@@ -36,7 +36,7 @@ The body has exactly these three fields. A request with any other field is rejec
 
 | Field | Type | Rules |
 |---|---|---|
-| `key` | string | Your license key: `crg_` followed by 32 lowercase hexadecimal characters. The portal accepts only that. The instance's own local format check is wider (it accepts any lowercase letters or digits, so it can start), so a key outside the hexadecimal set passes the local check but is rejected by the portal as a malformed request, which the instance treats as no answer. |
+| `key` | string | Your license key. The instance accepts `crg_` followed by 32 lowercase letters or digits, and keys are issued with hexadecimal characters (`0`-`9` and `a`-`f`). The portal accepts only the hexadecimal form, so a key that passes the instance's local check but is not hexadecimal is rejected by the portal as a malformed request, which the instance treats as no answer. |
 | `repoBucket` | string | One of a closed set: `"1-5"`, `"6-20"`, `"21-100"`, `"100+"`. An exact repo count is rejected. |
 | `toolVersion` | string | Up to 64 characters: letters, digits, `.`, `+` and `-`, starting with a letter or digit. |
 

@@ -21,7 +21,7 @@ A flag that takes `true` or `1` is a **strict** match: anything else, including 
 | `CROSSREPOGRAPH_DISABLE_WARMUP` | off | `true` or `1` stops the background read of your repos at start-up. Queries still read repos when they need them. Exactly `true` or `1`; `TRUE` does not count. |
 | `CROSSREPOGRAPH_CORRECTIONS` | off | `true` or `1` turns on the [corrections beta](#corrections-beta). Exactly `true` or `1`. |
 
-The older name `CROSSREPO_GRAPH_LICENSE_KEY` is still read, with a warning on stderr.
+The older name `CROSSREPO_GRAPH_LICENSE_KEY` is no longer read. Rename it to `CROSSREPOGRAPH_LICENSE_KEY`.
 
 ## Running without outbound access
 

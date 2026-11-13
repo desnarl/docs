@@ -42,7 +42,7 @@ Early keys are issued by hand. Request one at [desnarl.com/request-key](https://
 
 The server still starts and completes the MCP handshake, so your client shows it as connected. It exposes exactly one tool, `crossrepo_license_required`, and none of the eight [query tools](../mcp-tools/reference.md). The tool's description and the server's MCP instructions carry the same text, which tells you to set `CROSSREPOGRAPH_LICENSE_KEY`; calling the tool returns that text. In this state the server opens no database, reads no workspace and makes no network call.
 
-If you launch the server from a terminal, the same message is also printed on stderr. The deprecated `CROSSREPO_GRAPH_LICENSE_KEY` variable still produces its warning on stderr, unchanged.
+If you launch the server from a terminal, the same message is also printed on stderr. The old name `CROSSREPO_GRAPH_LICENSE_KEY` is no longer read. If it is set, the message above gains a note saying it is no longer read and asking you to rename it to `CROSSREPOGRAPH_LICENSE_KEY`; the note never shows the value.
 
 A bad key does not make the server exit with an error. It stays up and exits with code 0 when its stdin closes, so a script that expected a non-zero exit for a bad key will no longer see one.
 

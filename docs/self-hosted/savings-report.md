@@ -111,6 +111,8 @@ The dollar amount is an **illustrative equivalent-API-cost estimate, not linked 
 
 The token figure comes from a calibrated average for each kind of call, not from a measurement of your own agent's behaviour. Treat the report as an estimate you can audit, never as a billing input.
 
+The method behind these figures, and the public page where we publish our own, is on [How the public results page is made](./results-methodology.md).
+
 ## Privacy
 
 The report is written to your own disk and reading it needs no network access. It contains repo names and counts, so treat it like any other file from your workspace before you share it.

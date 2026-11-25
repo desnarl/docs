@@ -11,7 +11,7 @@ title: Licensing & pricing FAQ
 
 > This figure is an explicit, unvalidated placeholder, not a finalized price. It's recorded here so this page tells you the current number honestly, not so you can treat it as locked. Check [desnarl.com](https://desnarl.com) for the current, authoritative price before relying on it for budgeting.
 
-Pricing is a flat fee per GitHub organisation, gated by license type: not usage-metered, not tiered by repo count. One price for a commercial license, regardless of how many repos or people. (Throughout these docs, a *workspace* is the folder of sibling repos you point the server at. The license is per organisation, not per folder or per machine.)
+Pricing is a flat fee per organisation, gated by license type: not usage-metered, not tiered by repo count. One price for a commercial license, regardless of how many repos or people. An organisation is the company, partnership or sole trader that uses Desnarl for its business. One license covers all its people, machines and repos. (Throughout these docs, a *workspace* is the folder of sibling repos you point the server at. The license is per organisation, not per folder or per machine.)
 
 ## What languages does it read?
 

@@ -16,7 +16,6 @@ A flag that takes `true` or `1` is a **strict** match: anything else, including 
 | `XDG_STATE_HOME`, `LOCALAPPDATA` | set by your system | Read only to find the default state directory on Linux and Windows. Not Desnarl settings. |
 | `CROSSREPOGRAPH_DISABLE_LICENSE_CHECKIN` | off | `true` (any case) or `1` switches off the [license check-in](./license-check-in.md): nothing is sent, no `checkin-state.json` is written, nothing blocks. |
 | `CROSSREPOGRAPH_CHECKIN_URL` | `https://desnarl.com/api/license/check-in` | Replaces the check-in endpoint, for a test host. Must be `https` with exactly that path. An invalid value turns the check-in off. |
-| `CROSSREPOGRAPH_CHECKIN_ALLOW_INSECURE_LOOPBACK` | off | `true` (any case) or `1` lets `CROSSREPOGRAPH_CHECKIN_URL` use `http` to `127.0.0.1`, `localhost` or `[::1]` only. For tests. |
 | `CROSSREPOGRAPH_DISABLE_REGISTRY_RESOLUTION` | off | `true` or `1` switches off the npm registry lookup that `crossrepo_consumers` uses for resolved versions. Version checks then compare declared ranges only, and say so. See [Registry-resolved version-skew checks](./deployment.md#registry-resolved-version-skew-checks). |
 | `CROSSREPOGRAPH_DISABLE_WARMUP` | off | `true` or `1` stops the background read of your repos at start-up. Queries still read repos when they need them. Exactly `true` or `1`; `TRUE` does not count. |
 | `CROSSREPOGRAPH_CORRECTIONS` | off | `true` or `1` turns on the [corrections beta](#corrections-beta). Exactly `true` or `1`. |

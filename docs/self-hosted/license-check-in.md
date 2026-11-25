@@ -131,7 +131,6 @@ These are environment variables, set in the same `env` block as your license key
 |---|---|
 | `CROSSREPOGRAPH_DISABLE_LICENSE_CHECKIN` | Set to `true` (any case) or `1` to switch the check-in off. Nothing is sent, no `checkin-state.json` is written, no notices appear and nothing blocks. It wins over every other setting. This is the supported setting for installs with no outbound access; pair it with the registry-resolution setting as described in [Configuration](./configuration.md#running-without-outbound-access). Without the check-in, the portal cannot tell the instance about a payment problem or a revoked key. Any other value leaves the check-in on. |
 | `CROSSREPOGRAPH_CHECKIN_URL` | Replaces the default endpoint, for a staging host or a test. It must be `https`, use exactly the path `/api/license/check-in`, and carry no credentials, query string or fragment. An invalid value switches the check-in off, prints one fixed line on stderr that does not repeat the value, and **never falls back to the default**. |
-| `CROSSREPOGRAPH_CHECKIN_ALLOW_INSECURE_LOOPBACK` | Set to `true` (any case) or `1` to let `CROSSREPOGRAPH_CHECKIN_URL` use plain `http`, and only when its host is `127.0.0.1`, `localhost` or `[::1]`. It exists for testing against a server on the same machine. It does nothing without `CROSSREPOGRAPH_CHECKIN_URL`, and every other rule for that URL still applies. Any other value leaves it off. |
 
 ## What stays on your machine
 

@@ -46,15 +46,18 @@ A report opens with a **Summary** (per-tool totals and an overall dollar range),
 Status: Active
 
 Edges by kind:
-- importExport: 3
+- importExport: 3 (exported symbols with consumers)
 - schema: not measured
 - deployment: not measured
 - cicd: not measured
 - topic: not measured
+- route: not measured
 
 Repos by language:
 - typescript: 3
 
+Credited calls: 1
+Mean tokens per credited call: 48,734
 Tokens saved: 48,734
 Estimated $ saved: $0.10–$0.49
 Time saved: not available
@@ -68,9 +71,9 @@ Total calls: 1
 
 The block title is the workspace's folder name and a short hash of its path. Each block carries four figures:
 
-1. **Edges by kind.** How many cross-repo links Desnarl found, split into import/export, schema, deployment, CI and topic.
+1. **Edges by kind.** How many cross-repo links Desnarl found, split into import/export, schema, deployment, CI, topic and route. Each kind counts a different thing, named in brackets after its figure, so the figures are not one total. Route links are candidate couplings, unverified, and are not comparable with the other kinds.
 2. **Repos by language.** How many repos in the workspace use each language.
-3. **Tokens saved and dollars saved**, shown separately from time saved.
+3. **Tokens saved and dollars saved**, shown separately from time saved. The block also shows how many calls earned a credit and the mean tokens per credited call. Only calls to `crossrepo_impact`, `crossrepo_consumers` and `crossrepo_schema_refs` can earn one; calls to the other query tools are counted and credited zero.
 4. **Calls made**, per tool.
 
 ### Reading the status line
@@ -86,7 +89,7 @@ The `Status` line says whether a low or zero figure is a problem.
 
 ### Not measured is not zero
 
-An edge kind that reads **not measured** has not been counted yet. It does not mean there are none. Today only `crossrepo_impact` records an edge count; schema, deployment, CI and topic counts stay "not measured" until their own tools do. `crossrepo_consumers` still counts as a call.
+An edge kind that reads **not measured** has not been counted yet. It does not mean there are none. Each kind is counted by its own tool, as a by-product of a call: `crossrepo_impact` and `crossrepo_consumers` record import/export, and `crossrepo_schema_refs`, `crossrepo_deployment_refs`, `crossrepo_cicd_refs`, `crossrepo_topic_refs` and `crossrepo_route_refs` record schema, deployment, CI, topic and route. A kind stays "not measured" until its tool has been called in that workspace.
 
 ### Empty results are credited zero
 
@@ -96,6 +99,16 @@ A call that finds no consumers counts toward **Calls**, but it adds **nothing** 
 - **Empty, unconfirmed.** Nothing was found, but some sibling repos were missing or could not be resolved, so the answer may be incomplete.
 
 Neither earns a saving. The totals are deliberately conservative.
+
+### Route calls are counted, not credited
+
+Calls to `crossrepo_route_refs` appear under **Calls by tool** as a count, with the saving marked as not yet measured:
+
+```markdown
+- crossrepo_route_refs: 2 call(s), saving not yet measured (not included in tokens saved)
+```
+
+These calls count toward **Total calls**, but they add **nothing** to tokens or dollars saved, and they are not credited calls. The report never shows them as a saving of 0. It says the saving has not been measured. This stays so until a saving for route calls has been measured.
 
 ## Time saved
 

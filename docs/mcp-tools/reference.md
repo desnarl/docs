@@ -119,7 +119,7 @@ Results are a starting point, not a verdict. The tool's own description in your 
 
 - A checked-out repo whose `package.json` or `go.mod` files are only in subfolders, and a repo with a root `go.mod` plus nested `go.mod` files (Go sub-modules), are searched. Nested `go.mod` and `package.json` files are discovered up to three levels deep, and each nested module is searched as part of its repo: a Go consumer file with the version its own module's `go.mod` pins, and a TypeScript file with the range its nearest `package.json` declares.
 - A repo whose folder tree was too large to finish scanning for nested manifests (more than 500 directories) is listed in `unresolvableRepos` with reason `scan_limit_reached`. It may hold modules that were not looked for, so treat it as not fully searched: narrow the workspace to that repo, or check its subfolders by hand.
-- A directory with no `package.json` or `go.mod` within three levels is not a repo and is not listed.
+- A top-level folder with no `package.json` or `go.mod` within three levels is not read as a repo. It is named in `nonRepoFolders` with its reason, never dropped silently; see [Folders that are not repos](#non-repo-folders).
 - A workspace-glob negation (`!dir`, `!dir/**` in `pnpm-workspace.yaml` or `package.json` `workspaces`) is honoured only for a literal path. Any other negation is skipped, so a package it was meant to exclude can still be included.
 - A nested package that declares a name but no entry file is not a build gap, and is not listed with reason `no_entry_declared`, when it comes from a repo with no root `package.json` or has `private: true`, unless it is the package queried.
 - A consumer's `declaredVersionRange` is read from the `dependencies` table only. A file in a package that declares the queried package under `devDependencies`, `peerDependencies` or `optionalDependencies` is still listed as a consumer, with no `declaredVersionRange`.
@@ -238,7 +238,7 @@ Results are a starting point, not a verdict. The tool's own description in your 
 
 - A checked-out repo whose `package.json` or `go.mod` files are only in subfolders, and a repo with a root `go.mod` plus nested `go.mod` files (Go sub-modules), are searched. Nested `go.mod` and `package.json` files are discovered up to three levels deep, and each nested module is searched as part of its repo: a Go consumer file with the version its own module's `go.mod` pins, and a TypeScript file with the range its nearest `package.json` declares.
 - A repo whose folder tree was too large to finish scanning for nested manifests (more than 500 directories) is listed in `unresolvableRepos` with reason `scan_limit_reached`. It may hold modules that were not looked for, so treat it as not fully searched: narrow the workspace to that repo, or check its subfolders by hand.
-- A directory with no `package.json` or `go.mod` within three levels is not a repo and is not listed.
+- A top-level folder with no `package.json` or `go.mod` within three levels is not read as a repo. It is named in `nonRepoFolders` with its reason, never dropped silently; see [Folders that are not repos](#non-repo-folders).
 - A workspace-glob negation (`!dir`, `!dir/**` in `pnpm-workspace.yaml` or `package.json` `workspaces`) is honoured only for a literal path. Any other negation is skipped, so a package it was meant to exclude can still be included.
 - A nested package that declares a name but no entry file is not a build gap, and is not listed with reason `no_entry_declared`, when it comes from a repo with no root `package.json` or has `private: true`, unless it is the package queried.
 - A consumer's `declaredVersionRange` is read from the `dependencies` table only. A file in a package that declares the queried package under `devDependencies`, `peerDependencies` or `optionalDependencies` is still listed as a consumer, with no `declaredVersionRange`.
@@ -568,6 +568,38 @@ A sibling repo is untrusted input, so Desnarl bounds every file it reads. A file
 **`skipped_unsafe_path` means a possibly missing reference.** A file in a sibling repo was a symlink or not a regular file, so Desnarl did not read it, and the answer may be missing something that file declares. Today only `crossrepo_deployment_refs` reports this reason, for the Helm and Kubernetes files it reads. Replace the symlink with a real file, or check the named file by hand. This is a safety limit, not a failure: a sibling repo is untrusted input, so Desnarl does not follow a path out of its checkout.
 
 **Which tools do not report skips yet.** Only the four tools above report skipped files. `crossrepo_topic_refs`, `crossrepo_cicd_refs`, `crossrepo_confirm` and `crossrepo_confirm_schema_ref` do not include `skippedFiles` in their results, so a file one of them could not read is not named.
+
+## Folders that are not repos {/* #non-repo-folders */}
+
+A top-level folder of your workspace is read as a repo if it has a `package.json` or `go.mod` at its top level, or one within three folders below it. Every other top-level folder is named in the answer of each query tool (`crossrepo_impact`, `crossrepo_consumers`, `crossrepo_schema_refs`, `crossrepo_deployment_refs`, `crossrepo_cicd_refs`, `crossrepo_topic_refs` and `crossrepo_route_refs`), so an answer never reads as if it searched a folder it skipped:
+
+```json
+{
+  "nonRepoFolders": [
+    { "folder": "billing-py", "reason": "no-manifest" },
+    { "folder": ".vscode", "reason": "dot-folder" }
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `nonRepoFolders[].folder` | The folder name. A name with characters outside a safe set, or longer than 200 characters, is shown as `<unprintable>`. |
+| `nonRepoFolders[].reason` | One of the reasons below. |
+| `nonRepoFoldersOmitted` | How many folders are not listed. At most **50** are listed, ordered by reason as in the table below, then by name. Present only when above zero. |
+
+Both fields are absent when every top-level folder was read as a repo. The list covers the whole workspace, whatever repo a call names. Files at the workspace root are never repos and are not listed. In Mermaid output, each listed folder is a `%% not a repo: <folder> (<reason>)` comment line.
+
+| Reason | What it means | What to do |
+|---|---|---|
+| `no-manifest` | No `package.json` or `go.mod` at its top level or within three folders below. A Python, Java or Ruby repo, or an older Go repo without `go.mod` (glide, dep, GOPATH or `vendor/` only), lands here. | Its code is not searched. For a Go or JS/TS repo, add a `go.mod` or `package.json`. |
+| `no-manifest-scan-limit` | No manifest at its top level, and the search for nested manifests stopped at its limit of 500 folders before finding one. | Move the repo's manifest higher up, or narrow the workspace. |
+| `unreadable` | The folder could not be listed, for example because of its permissions. | Fix the permissions. |
+| `symlink` | The folder is a symbolic link. Links are never followed, so nothing outside the workspace is read. | Check the repo out as a real folder in the workspace. |
+| `this-tool` | The folder is a checkout of Desnarl itself. | Nothing; it is skipped on purpose. |
+| `dot-folder` | The name starts with `.` and there is no manifest at its top level (for example `.git` or `.vscode`). | Nothing, unless it is a repo: then give it a manifest at its top level. |
+
+A folder listed as `no-manifest-scan-limit` is also listed by `crossrepo_impact` and `crossrepo_consumers` in `unresolvableRepos` with reason `scan_limit_reached`, as before.
 
 ## Scope and limitations
 

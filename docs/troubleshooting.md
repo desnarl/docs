@@ -37,6 +37,10 @@ In each case the repo is named, not dropped, so an answer that lists it is not p
 
 A skipped file is a possibly missing consumer, so an answer from a repo that has one is not proof of no impact. The caps, the exact field shape and which tools report skips are in the [tool reference](./mcp-tools/reference.md#skipped-files). There is nothing to fix on your side except to check the named file by hand (for `skipped_unsafe_path`, replacing the symlink with a real file also works); a `skipped_timeout` can depend on machine load, and the next query tries the file again.
 
+## A repo is missing from every answer (`nonRepoFolders`) {/* #non-repo-folders */}
+
+If a repo never appears in any answer, look for it in the answer's `nonRepoFolders` field. A top-level folder is read as a repo only if it has a `package.json` or `go.mod` at its top level or within three folders below. The most common reason is `no-manifest`: a repo in another language, or an older Go repo with no `go.mod`. A folder that is a symbolic link is listed as `symlink` and is not followed. Every reason, and what to do about it, is in the [tool reference](./mcp-tools/reference.md#non-repo-folders).
+
 ## Docker image fails to pull or run
 
 The image is published to `ghcr.io/desnarl/crossrepograph` on each tagged release. A pull failure is most often one of two causes, not a broken image:
